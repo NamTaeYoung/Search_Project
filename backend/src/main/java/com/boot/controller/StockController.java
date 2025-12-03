@@ -6,13 +6,19 @@ import org.springframework.web.bind.annotation.*;
 
 import com.boot.dto.StockDetailResponseDTO;
 import com.boot.dto.StockInfoDTO;
+import com.boot.dto.StockNewsDTO;
 import com.boot.service.StockInfoService;
 import com.boot.service.StockNewsService;
+import com.boot.service.StockService;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
 @RestController
 @RequestMapping("/api/stocks")
+@RequestMapping("/api")    
 @RequiredArgsConstructor
 /*
  * 검색 + 상세
@@ -21,6 +27,9 @@ public class StockController {
 
     private final StockInfoService stockInfoService;
     private final StockNewsService stockNewsService;
+    
+    @Autowired
+    private StockService service;
 
     // 자동완성 + 검색
     @GetMapping("/search")
@@ -39,5 +48,22 @@ public class StockController {
         dto.setSentiment(stockNewsService.getSentimentSummary(stockCode));
 
         return dto;
+    }
+    @PostMapping("/stocks")
+    public String insertStockInfo(@RequestBody StockInfoDTO dto) {
+
+        System.out.println("==== [CHECK] 들어온 STOCK_NAME ====");
+        System.out.println(dto.getStockName());
+        System.out.println("=================================");
+
+        service.insertStockInfo(dto);
+        return "OK";
+    }
+
+
+    @PostMapping("/news")
+    public String insertStockNews(@RequestBody StockNewsDTO dto) {
+        service.insertStockNews(dto);
+        return "OK";
     }
 }
