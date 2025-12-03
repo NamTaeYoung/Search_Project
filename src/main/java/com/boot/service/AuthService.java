@@ -2,7 +2,7 @@ package com.boot.service;
 
 import com.boot.dao.UserDAO;
 import com.boot.dto.LoginRequestDTO;
-import com.boot.dto.RegisterRequest;
+import com.boot.dto.RegisterRequestDTO;
 import com.boot.dto.UserInfoDTO;
 import com.boot.security.JwtProvider;
 
@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.time.Duration;
 
@@ -28,6 +29,7 @@ public class AuthService {
     private final int MAX_FAIL = 5;
     private final int LOCK_TIME = 30;
 
+    private static final DateTimeFormatter DT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     public ResponseEntity<?> login(LoginRequestDTO req) {
 
         UserInfoDTO user = userDAO.findByEmail(req.getEmail());
@@ -37,10 +39,16 @@ public class AuthService {
             return ResponseEntity.status(401).body("❌ 존재하지 않는 이메일입니다.");
         }
 
+        // 이메일 인증 여부 체크
+        if (!"ACTIVE".equals(user.getAccountStatus())) {
+            return ResponseEntity.status(403)
+                    .body("❌ 이메일 인증이 필요합니다. 메일을 확인해주세요.");
+        }
+
         // 2) 계정 잠금 상태인지 확인
         if (user.getLockUntil() != null) {
 
-            LocalDateTime lockUntil = LocalDateTime.parse(user.getLockUntil());
+        	LocalDateTime lockUntil = LocalDateTime.parse(user.getLockUntil(), DT_FORMAT);
 
             if (lockUntil.isAfter(LocalDateTime.now())) {
 
@@ -55,7 +63,8 @@ public class AuthService {
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
 
             // 실패 횟수 증가
-            int newFailCount = user.getLoginFailCount() + 1;
+        	Integer failCount = user.getLoginFailCount();
+        	int newFailCount = (failCount == null ? 0 : failCount) + 1;;
             userDAO.updateFailCount(user.getEmail(), newFailCount);
 
             // 실패 5번 → 계정 잠금
@@ -94,7 +103,7 @@ public class AuthService {
     }
     
     //회원가입
-    public ResponseEntity<?> register(RegisterRequest req) {
+    public ResponseEntity<?> register(RegisterRequestDTO req) {
 
         // 1) 중복 체크
         if (userDAO.findByEmail(req.getEmail()) != null) {
@@ -110,7 +119,8 @@ public class AuthService {
         // 4) 이메일 인증 토큰 생성 (UUID 사용)
         String token = UUID.randomUUID().toString();
         LocalDateTime expireAt = LocalDateTime.now().plusMinutes(30);
-
+        
+        String expireAtStr = expireAt.format(DT_FORMAT);
         // 5) DB 저장
         userDAO.insertUser(
                 req.getEmail(),
@@ -121,10 +131,40 @@ public class AuthService {
                 "LOCAL",
                 "USER",
                 token,
-                expireAt.toString()
+                expireAtStr
         );
 
         // 6) 응답
         return ResponseEntity.ok("회원가입 완료! 이메일 인증을 진행해주세요.");
     }
+    public ResponseEntity<?> verifyEmail(String token) {
+
+        // 1) 토큰으로 유저 찾기
+        UserInfoDTO user = userDAO.findByToken(token);
+
+        if (user == null) {
+            return ResponseEntity.status(400)
+                    .body("❌ 유효하지 않은 인증 링크입니다.");
+        }
+
+        // 2) 계정이 이미 활성화 상태면
+        if ("ACTIVE".equals(user.getAccountStatus())) {
+            return ResponseEntity.status(400)
+                    .body("이미 인증이 완료된 계정입니다.");
+        }
+
+        // 3) 토큰 만료 여부 체크
+        LocalDateTime expireAt = LocalDateTime.parse(user.getTokenExpireAt(), DT_FORMAT);
+
+        if (expireAt.isBefore(LocalDateTime.now())) {
+            return ResponseEntity.status(400)
+                    .body("❌ 인증 시간이 만료되었습니다. 다시 요청해주세요.");
+        }
+
+        // 4) 인증 성공 → 계정 활성화
+        userDAO.activateUser(user.getEmail());
+
+        return ResponseEntity.ok("🎉 이메일 인증이 완료되었습니다! 로그인할 수 있습니다.");
+    }
+    
 }
