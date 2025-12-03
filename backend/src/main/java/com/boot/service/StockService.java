@@ -1,0 +1,9 @@
+package com.boot.service;
+
+import com.boot.dto.StockInfoDTO;
+import com.boot.dto.StockNewsDTO;
+
+public interface StockService {
+    void insertStockInfo(StockInfoDTO dto);
+    void insertStockNews(StockNewsDTO dto);
+}
