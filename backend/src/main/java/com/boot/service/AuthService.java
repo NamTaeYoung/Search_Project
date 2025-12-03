@@ -2,6 +2,8 @@ package com.boot.service;
 
 import com.boot.dao.UserDAO;
 import com.boot.dto.LoginRequestDTO;
+import com.boot.dto.LoginResponseDTO;
+import com.boot.dto.LoginUserInfoDTO;
 import com.boot.dto.PasswordResetConfirmDTO;
 import com.boot.dto.RegisterRequestDTO;
 import com.boot.dto.UserInfoDTO;
@@ -33,48 +35,41 @@ public class AuthService {
     private static final DateTimeFormatter DT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     public ResponseEntity<?> login(LoginRequestDTO req) {
 
-        UserInfoDTO user = userDAO.findByEmail(req.getEmail());
+    	UserInfoDTO user = userDAO.findByEmail(req.getEmail());
 
         // 1) 이메일 존재 확인
         if (user == null) {
             return ResponseEntity.status(401).body("❌ 존재하지 않는 이메일입니다.");
         }
 
-        // 이메일 인증 여부 체크
+        // 2) 이메일 인증 + 계정 상태 체크 (예시)
         if (!"ACTIVE".equals(user.getAccountStatus())) {
             return ResponseEntity.status(403)
-                    .body("❌ 이메일 인증이 필요합니다. 메일을 확인해주세요.");
+                    .body("❌ 이메일 인증이 필요하거나 정지된 계정입니다.");
         }
 
-        // 2) 계정 잠금 상태인지 확인
+        // 3) 계정 잠금 여부 체크 (이미 있던 코드 그대로)
         if (user.getLockUntil() != null) {
-
-        	LocalDateTime lockUntil = LocalDateTime.parse(user.getLockUntil(), DT_FORMAT);
-
+            LocalDateTime lockUntil = LocalDateTime.parse(user.getLockUntil(), DT_FORMAT);
             if (lockUntil.isAfter(LocalDateTime.now())) {
-
                 long remainSec = Duration.between(LocalDateTime.now(), lockUntil).getSeconds();
-
                 return ResponseEntity.status(403)
                         .body("🚫 계정이 잠겨있습니다. " + remainSec + "초 후 다시 시도 가능합니다.");
             }
         }
 
-        // 3) 비밀번호 검증
+        // 4) 비밀번호 검증
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-
-            // 실패 횟수 증가
-        	Integer failCount = user.getLoginFailCount();
-        	int newFailCount = (failCount == null ? 0 : failCount) + 1;;
+            // 실패 횟수 증가 + 잠금 로직 (기존 코드 그대로)
+            Integer failCount = user.getLoginFailCount();
+            int newFailCount = (failCount == null ? 0 : failCount) + 1;
             userDAO.updateFailCount(user.getEmail(), newFailCount);
 
-            // 실패 5번 → 계정 잠금
             if (newFailCount >= MAX_FAIL) {
                 LocalDateTime lockTime = LocalDateTime.now().plusSeconds(LOCK_TIME);
-                userDAO.lockUser(user.getEmail(), lockTime.toString());
-
+                userDAO.lockUser(user.getEmail(), lockTime.format(DT_FORMAT));
                 return ResponseEntity.status(403)
-                        .body("❌ 비밀번호 5회 이상 오류. 계정이 30초동안 잠겼습니다.");
+                        .body("❌ 비밀번호 5회 이상 오류. 계정이 30초 동안 잠겼습니다.");
             }
 
             int remain = MAX_FAIL - newFailCount;
@@ -82,13 +77,25 @@ public class AuthService {
                     .body("❌ 비밀번호 오류. 남은 시도: " + remain + "회");
         }
 
-        // 4) 로그인 성공 → 실패횟수 초기화
+        // 5) 로그인 성공 → 실패횟수 초기화
         userDAO.resetFailCount(user.getEmail());
 
-        // 5) JWT 발급
+        // 6) JWT 발급
         String token = jwtProvider.createToken(user.getEmail());
 
-        return ResponseEntity.ok(token);
+        // 7) 프론트에 내려줄 사용자 정보 구성 (민감정보 제외)
+        LoginUserInfoDTO userInfo = new LoginUserInfoDTO(
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole(),
+                user.getProvider(),
+                user.getCreatedAt(),
+                user.getAccountStatus()
+        );
+
+        LoginResponseDTO response = new LoginResponseDTO(token, userInfo);
+
+        return ResponseEntity.ok(response);
     }
     
     //이메일 중복 확인
