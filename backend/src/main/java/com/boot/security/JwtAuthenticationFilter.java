@@ -20,37 +20,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final CustomUserDetailsService userDetailsService;
 
-    // 요청이 들어올 때마다 JWT를 검사하는 필터
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Authorization 헤더에서 JWT 추출
         String authHeader = request.getHeader("Authorization");
 
-        // JWT 존재 여부 확인
+        // Bearer 토큰인지 확인
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
 
-            String token = authHeader.substring(7); // "Bearer " 제거
+            String token = authHeader.substring(7);
 
-            // 토큰에서 email 꺼내기
-            String email = jwtProvider.getEmailFromToken(token);
+            // **1) 토큰 유효성 검사**
+            if (jwtProvider.validateToken(token)) {
 
-            // DB에서 유저정보 로드
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                // **2) 이메일 추출**
+                String email = jwtProvider.getEmailFromToken(token);
 
-            // 스프링 시큐리티가 인증된 사용자로 인식하도록 설정
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities()
-                    );
+                // **3) 기존 인증이 없다면**
+                if (email != null &&
+                        SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // DB에서 사용자 로드
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+                    // 인증 객체 생성
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+            // else — 토큰이 잘못된 경우 -> 아무것도 하지 않고 다음 필터
         }
 
-        // 다음 필터로 넘김
         filterChain.doFilter(request, response);
     }
 }
