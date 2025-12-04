@@ -45,4 +45,30 @@
             ) DESC
     )
     WHERE ROWNUM &lt;= 100  </select>
+    
+    <select id="selectTopRisingStocks" resultType="com.boot.dto.StockInfoDTO">
+    SELECT * FROM (
+        SELECT
+            STOCK_CODE, 
+            STOCK_NAME, 
+            CHANGE_RATE
+        FROM
+            STOCK_INFO
+        ORDER BY
+            CHANGE_RATE DESC
+    )
+    WHERE ROWNUM &lt;= 3  </select>
+    
+    <select id="selectTopFallingStocks" resultType="com.boot.dto.StockInfoDTO">
+    SELECT * FROM (
+        SELECT
+            STOCK_CODE, 
+            STOCK_NAME, 
+            CHANGE_RATE
+        FROM
+            STOCK_INFO
+        ORDER BY
+            CHANGE_RATE ASC  )
+    WHERE ROWNUM &lt;= 3
+</select>
 </mapper>

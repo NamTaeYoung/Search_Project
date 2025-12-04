@@ -1,6 +1,8 @@
 package com.boot.controller;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.web.bind.annotation.*;
 
@@ -74,5 +76,19 @@ public class StockController {
         List<StockInfoDTO> ranking = stockService.selectTop100MarketCap(); 
         
         return ResponseEntity.ok(ranking);
+    }
+    
+    // 🌟 급등/급락 종목 조회 API (신규)
+    @GetMapping("/top-movers")
+    public Map<String, List<StockInfoDTO>> getTopMovers() {
+        
+        List<StockInfoDTO> rising = stockService.selectTopRisingStocks();
+        List<StockInfoDTO> falling = stockService.selectTopFallingStocks();
+        
+        Map<String, List<StockInfoDTO>> movers = new HashMap<>();
+        movers.put("rising", rising);
+        movers.put("falling", falling);
+        
+        return movers;
     }
 }

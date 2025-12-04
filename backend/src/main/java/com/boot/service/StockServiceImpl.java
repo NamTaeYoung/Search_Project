@@ -33,4 +33,14 @@ public class StockServiceImpl implements StockService {
     public List<StockInfoDTO> selectTop100MarketCap() {
         return stockDAO.selectTop100MarketCap();
     }
+    
+    @Override
+    public List<StockInfoDTO> selectTopRisingStocks() {
+        return stockDAO.selectTopRisingStocks();
+    }
+
+    @Override
+    public List<StockInfoDTO> selectTopFallingStocks() {
+        return stockDAO.selectTopFallingStocks();
+    }
 }

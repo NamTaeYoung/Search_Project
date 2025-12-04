@@ -13,4 +13,10 @@ public interface StockInfoDAO {
     StockInfoDTO getStockDetail(String stockCode);
 
     List<StockInfoDTO> selectTop100MarketCap();
+    
+    // 🌟 급등 종목 (등락률 상위 3개)
+    List<StockInfoDTO> selectTopRisingStocks();
+    
+    // 🌟 급락 종목 (등락률 하위 3개)
+    List<StockInfoDTO> selectTopFallingStocks();
 }
