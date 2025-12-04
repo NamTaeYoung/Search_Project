@@ -8,6 +8,7 @@ import com.boot.dto.RegisterRequestDTO;
 import com.boot.dto.SocialUserInfoDTO;
 import com.boot.service.AuthService;
 import com.boot.service.KakaoOAuthService;
+import com.boot.service.NaverOAuthService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final KakaoOAuthService kakaoOAuthService;
+	private final NaverOAuthService naverOAuthService;
 
     // 로그인 요청 처리
     @PostMapping("/login")
@@ -81,5 +83,15 @@ public class AuthController {
         SocialUserInfoDTO social = kakaoOAuthService.getUserInfo(code);
 
         return authService.socialLogin(social);
+    }
+    
+    //네이버 로그인
+    @GetMapping("/naver/callback")
+    public ResponseEntity<?> naverCallback(
+            @RequestParam String code,
+            @RequestParam String state) {
+
+        SocialUserInfoDTO socialUser = naverOAuthService.getUserInfo(code, state);
+        return authService.socialLogin(socialUser);
     }
 }
