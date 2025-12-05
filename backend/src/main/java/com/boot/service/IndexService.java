@@ -17,17 +17,22 @@ import java.util.List;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.CacheEvict;
+// 🌟 CacheEvictService 주입 (collectDataRangeAndSave에서 사용)
+import com.boot.service.CacheEvictService; 
 
 @Service
 public class IndexService {
 
     @Autowired private IndexDAO indexDAO;
     @Autowired private RestTemplate restTemplate; 
+    
+    // 🌟 CacheEvictService 주입
+    @Autowired private CacheEvictService cacheEvictService;
 
     private static final String SERVICE_KEY = "bd57b87ea9aa7ba4d2e87197051340c26321a4c486cef4b994b2269766664ccb";
     private static final String API_ENDPOINT = "https://apis.data.go.kr/1160100/service/GetMarketIndexInfoService/getStockMarketIndex";
     private static final int ROWS_PER_PAGE = 500;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     
     // Redis 캐시 상수 (KOSPI)
     private static final String KOSPI_CACHE_NAME = "kospiHistoryCache";
@@ -39,11 +44,11 @@ public class IndexService {
 
     // KOSPI 상수
     private static final String TARGET_INDEX = "코스피";
-    private static final String START_DATE = "19800104";
+    private static final String START_DATE = "19800104"; // KOSPI 시작일
 
     // KOSDAQ 상수
     private static final String TARGET_INDEX_KOSDAQ = "코스닥";
-    private static final String START_DATE_KOSDAQ = "19960701";
+    private static final String START_DATE_KOSDAQ = "19960701"; // KOSDAQ 시작일
 
     // ------------------- XML 파싱 유틸 -------------------
     private String getTagValue(String tag, Element element) {
@@ -81,7 +86,6 @@ public class IndexService {
                     dto.setIdxNm(getTagValue("idxNm", element));
                     dto.setBasDt(getTagValue("basDt", element));
 
-                    // 숫자 필드는 파싱 실패 시 DB에 NULL을 넣기 위해 안전하게 처리
                     try { dto.setClpr(Double.parseDouble(getTagValue("clpr", element))); } catch (Exception e) { dto.setClpr(null); }
                     try { dto.setVs(Double.parseDouble(getTagValue("vs", element))); } catch (Exception e) { dto.setVs(null); }
                     try { dto.setFltRt(Double.parseDouble(getTagValue("fltRt", element))); } catch (Exception e) { dto.setFltRt(null); }
@@ -103,19 +107,8 @@ public class IndexService {
         return resultList;
     }
 
-    // ------------------- URL 빌더 (build(false) 사용) -------------------
+    // ------------------- URL 빌더 -------------------
     
-    private String buildApiUrlForTotalCountForIndex(String idxNm, int pageNo, int numOfRows) {
-        return UriComponentsBuilder.fromUriString(API_ENDPOINT)
-                .queryParam("serviceKey", SERVICE_KEY)
-                .queryParam("resultType", "xml")
-                .queryParam("pageNo", pageNo)
-                .queryParam("numOfRows", numOfRows)
-                .queryParam("idxNm", idxNm)
-                .build(false) 
-                .toUriString();
-    }
-
     private String buildApiUrlForIndex(String idxNm, int pageNo, int numOfRows, String beginDt, String endDt) {
         return UriComponentsBuilder.fromUriString(API_ENDPOINT)
                 .queryParam("serviceKey", SERVICE_KEY)
@@ -130,197 +123,189 @@ public class IndexService {
     }
 
     // ------------------------------------------------------------
-    // 서버 시작 시 자동 실행: KOSPI + KOSDAQ 전체 초기 수집
+    // 🌟 서버 시작 시 자동 실행: 누락분 업데이트 로직 (캐시 삭제 로직 제거)
     // ------------------------------------------------------------
     @PostConstruct
     public void runInitialFullBackfillIfNeeded() {
-        // KOSPI 초기 데이터 수집 (STOCK_INDEX_DATA 테이블)
+        // 🔴 여기서 직접 캐시를 지우는 로직을 제거합니다. CacheInitializerService가 담당합니다.
+        System.out.println("AUTO INIT: KOSPI/KOSDAQ 데이터 유효성 검사 및 누락분 수집 시작");
+        
+        // KOSPI 데이터 유효성 검사 및 업데이트
         try {
-            if (indexDAO.countIndexData(TARGET_INDEX) <= 10) {
-                System.out.println("AUTO INIT: KOSPI 전체 초기 수집 시작");
-                initiateHistoricalDataCollectionInternal();
-                System.out.println("AUTO INIT: KOSPI 전체 초기 수집 완료");
-            } else {
-                System.out.println("AUTO INIT: KOSPI 데이터 충분 → 스킵");
-            }
+            updateMissingIndexData(
+                TARGET_INDEX, 
+                START_DATE, 
+                indexDAO.countIndexData(TARGET_INDEX),
+                indexDAO.selectLatestBasDt(TARGET_INDEX) 
+            );
         } catch (Exception e) {
             System.err.println("AUTO INIT: KOSPI 초기 수집 중 오류: " + e.getMessage());
             e.printStackTrace();
         }
 
-        // KOSDAQ 초기 데이터 수집 (STOCK_INDEX_DATA_KOSDAQ 테이블)
+        // KOSDAQ 데이터 유효성 검사 및 업데이트
         try {
-            // IndexDAO에 KOSDAQ 테이블 카운트 메소드가 있다고 가정 (countKosdaqIndexData)
-            if (indexDAO.countKosdaqIndexData(TARGET_INDEX_KOSDAQ) <= 10) { 
-                System.out.println("AUTO INIT: KOSDAQ 전체 초기 수집 시작");
-                initiateKosdaqHistoricalDataCollectionInternal();
-                System.out.println("AUTO INIT: KOSDAQ 전체 초기 수집 완료");
-            } else {
-                System.out.println("AUTO INIT: KOSDAQ 데이터 충분 → 스킵");
-            }
+            updateMissingIndexData(
+                TARGET_INDEX_KOSDAQ, 
+                START_DATE_KOSDAQ, 
+                indexDAO.countKosdaqIndexData(TARGET_INDEX_KOSDAQ), 
+                indexDAO.selectLatestKosdaqBasDt(TARGET_INDEX_KOSDAQ) 
+            );
         } catch (Exception e) {
             System.err.println("AUTO INIT: KOSDAQ 초기 수집 중 오류: " + e.getMessage());
             e.printStackTrace();
         }
+        System.out.println("AUTO INIT: 누락분 업데이트 검사 완료");
     }
 
     // ==========================================================
-    // KOSPI 전용 로직 (STOCK_INDEX_DATA 테이블 사용)
+    // KOSPI/KOSDAQ 수동 전체 수집 API (누락분 업데이트 로직 호출로 변경)
     // ==========================================================
-
+    
     @Transactional
     public void initiateHistoricalDataCollection() {
-        initiateHistoricalDataCollectionInternal();
+         updateMissingIndexData(
+            TARGET_INDEX, 
+            START_DATE, 
+            indexDAO.countIndexData(TARGET_INDEX), 
+            indexDAO.selectLatestBasDt(TARGET_INDEX)
+         );
     }
-
+    
     @Transactional
-    protected void initiateHistoricalDataCollectionInternal() {
-        System.out.println("=== KOSPI 전체 데이터 수집 시작 ===");
-        try {
-            // 1. totalCount 확인
-            String countUrl = buildApiUrlForTotalCountForIndex(TARGET_INDEX, 1, 1);
-            String xmlResponse = restTemplate.getForObject(countUrl, String.class);
-            List<IndexDataDTO> initialData = parseXml(xmlResponse);
-
-            if (initialData.isEmpty() || initialData.get(0).getTotalCount() == null) {
-                System.err.println("⚠ KOSPI totalCount 조회 실패 → 중단.");
-                return;
-            }
-
-            int totalCount = initialData.get(0).getTotalCount();
-            int totalPages = (int) Math.ceil((double) totalCount / ROWS_PER_PAGE);
-            String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-            // 2. 전체 페이지 순회 및 DB 저장
-            for (int pageNo = 1; pageNo <= totalPages; pageNo++) {
-                String url = buildApiUrlForIndex(TARGET_INDEX, pageNo, ROWS_PER_PAGE, START_DATE, today);
-                String pageXml = restTemplate.getForObject(url, String.class);
-                List<IndexDataDTO> pageData = parseXml(pageXml);
-
-                for (IndexDataDTO dto : pageData) {
-                    if (TARGET_INDEX.equals(dto.getIdxNm())) {
-                        indexDAO.insertOrUpdateIndexData(dto);
-                    }
-                }
-                System.out.println("KOSPI 페이지 " + pageNo + " 완료 (" + pageData.size() + "건)");
-                Thread.sleep(200); // API 부하 방지
-            }
-
-            System.out.println("=== KOSPI 전체 데이터 수집 완료 ===");
-        } catch (Exception e) {
-            System.err.println("KOSPI 치명적 오류: " + e.getMessage());
-            e.printStackTrace();
-        }
+    public void initiateKosdaqHistoricalDataCollection() {
+         updateMissingIndexData(
+            TARGET_INDEX_KOSDAQ, 
+            START_DATE_KOSDAQ, 
+            indexDAO.countKosdaqIndexData(TARGET_INDEX_KOSDAQ), 
+            indexDAO.selectLatestKosdaqBasDt(TARGET_INDEX_KOSDAQ)
+         );
     }
 
-    // ---------------- React 차트용 (KOSPI) ----------------
-    // 🌟 Redis 캐싱 처리 적용: 캐시가 있으면 DB 조회 없이 즉시 반환
+
+    // ==========================================================
+    // 🌟 핵심 로직: DB의 가장 최근 날짜 이후의 누락분을 수집 (공통 사용)
+    // ==========================================================
+    @Transactional
+    protected void updateMissingIndexData(String idxNm, String initialStartDate, int dbCount, String latestDtInDB) {
+        String startDateToFetch = initialStartDate;
+        
+        // DB에 데이터가 있다면, 가장 최근 날짜의 다음 날부터 시작
+        if (dbCount > 10 && latestDtInDB != null && !latestDtInDB.isEmpty()) {
+            try {
+                LocalDate latestDate = LocalDate.parse(latestDtInDB, DATE_FORMATTER);
+                startDateToFetch = latestDate.plusDays(1).format(DATE_FORMATTER);
+                
+                System.out.println(idxNm + " 데이터 발견. 업데이트 시작 날짜: " + startDateToFetch);
+                
+            } catch (Exception e) {
+                System.err.println(idxNm + " 최근 날짜 파싱 오류. 초기 시작일(" + initialStartDate + ")로 대체: " + e.getMessage());
+                startDateToFetch = initialStartDate;
+            }
+        } else {
+            System.out.println(idxNm + " DB 데이터 부족. 초기 수집 시작 날짜: " + initialStartDate);
+        }
+        
+        // 오늘 날짜
+        String today = LocalDate.now().format(DATE_FORMATTER);
+
+        // 이미 최신 날짜 이후라면 업데이트 불필요
+        if (startDateToFetch.compareTo(today) > 0) {
+            System.out.println(idxNm + " 최신 데이터입니다. 업데이트 불필요.");
+            return;
+        }
+
+        // 2. API 호출 (시작일 ~ 오늘)
+        collectDataRangeAndSave(idxNm, ROWS_PER_PAGE, startDateToFetch, today);
+    }
+    
+    // ==========================================================
+    // 공통 수집 및 저장 유틸리티
+    // ==========================================================
+    
+    @Transactional
+    protected void collectDataRangeAndSave(String idxNm, int rowsPerPage, String beginDt, String endDt) {
+         System.out.println("=== " + idxNm + " 데이터 수집 시작: " + beginDt + " ~ " + endDt + " ===");
+         int totalCount = 0;
+         int totalPages = 0;
+         
+         try {
+             // 1. 전체 건수를 가져오기 위한 초기 API 호출 (범위 기반)
+             String countUrl = buildApiUrlForIndex(idxNm, 1, 1, beginDt, endDt);
+             String xmlResponse = restTemplate.getForObject(countUrl, String.class);
+             List<IndexDataDTO> initialData = parseXml(xmlResponse);
+
+             if (initialData.isEmpty() || initialData.get(0).getTotalCount() == null) {
+                 System.err.println("⚠ " + idxNm + " totalCount 조회 실패 또는 데이터 없음.");
+                 return;
+             }
+
+             totalCount = initialData.get(0).getTotalCount();
+             totalPages = (int) Math.ceil((double) totalCount / rowsPerPage);
+
+             if (totalCount == 0) {
+                 System.out.println(idxNm + " 수집 기간 내 신규 데이터 없음.");
+                 return;
+             }
+             
+             // 2. 전체 페이지 순회 및 DB 저장
+             for (int pageNo = 1; pageNo <= totalPages; pageNo++) {
+                 String url = buildApiUrlForIndex(idxNm, pageNo, rowsPerPage, beginDt, endDt);
+                 String pageXml = restTemplate.getForObject(url, String.class);
+                 List<IndexDataDTO> pageData = parseXml(pageXml);
+
+                 for (IndexDataDTO dto : pageData) {
+                     if (idxNm.equals(dto.getIdxNm())) {
+                         if (idxNm.equals(TARGET_INDEX)) {
+                             indexDAO.insertOrUpdateIndexData(dto); // KOSPI 테이블 저장
+                         } else if (idxNm.equals(TARGET_INDEX_KOSDAQ)) {
+                             indexDAO.insertOrUpdateKosdaqIndexData(dto); // KOSDAQ 테이블 저장
+                         }
+                     }
+                 }
+                 System.out.println(idxNm + " 페이지 " + pageNo + " 완료 (" + pageData.size() + "건)");
+                 Thread.sleep(200); // API 부하 방지
+             }
+
+             System.out.println("=== " + idxNm + " 데이터 수집 완료 (총 " + totalCount + "건) ===");
+             
+             // 🔴 이 위치에서 캐시 삭제 로직을 제거합니다. 
+             // 캐시 삭제는 CacheInitializerService가 담당합니다.
+
+         } catch (Exception e) {
+             System.err.println(idxNm + " 데이터 수집 중 치명적 오류: " + e.getMessage());
+             e.printStackTrace();
+         }
+    }
+
+
+    // ==========================================================
+    // 캐시 및 데이터 조회 메서드 (Cacheable 유지)
+    // ==========================================================
+
+    // KOSPI 조회
     @Cacheable(value = KOSPI_CACHE_NAME, key = KOSPI_CACHE_KEY)
     public List<IndexDataDTO> getKospiTimeSeriesData() {
         System.out.println("DEBUG: DB에서 KOSPI 히스토리 조회 중 (Cache Miss)...");
         return indexDAO.selectKospiHistory();
     }
-
-    // ---------------- 일일 KOSPI 저장 ----------------
-    // 🌟 Redis 캐싱 처리 적용: DB 업데이트 후 캐시 삭제
-    @CacheEvict(value = KOSPI_CACHE_NAME, key = KOSPI_CACHE_KEY)
-    @Transactional 
-    public void saveSingleDayData(String targetDate) {
-        try {
-            String url = buildApiUrlForIndex(TARGET_INDEX, 1, 1, targetDate, targetDate);
-            String xmlResponse = restTemplate.getForObject(url, String.class);
-            List<IndexDataDTO> data = parseXml(xmlResponse);
-
-            if (!data.isEmpty() && TARGET_INDEX.equals(data.get(0).getIdxNm())) {
-                indexDAO.insertOrUpdateIndexData(data.get(0));
-                System.out.println("KOSPI 데이터 DB 저장 완료 및 캐시 [" + KOSPI_CACHE_KEY + "] 삭제 완료.");
-            } else {
-                System.out.println("KOSPI " + targetDate + " 데이터 없음 또는 idxNm 불일치");
-            }
-        } catch (Exception e) {
-            System.err.println("KOSPI 일일 저장 오류: " + e.getMessage());
-        }
-    }
-
-
-    // ==========================================================
-    // KOSDAQ 전용 로직 (STOCK_INDEX_DATA_KOSDAQ 테이블 사용)
-    // ==========================================================
-
-    @Transactional
-    public void initiateKosdaqHistoricalDataCollection() {
-        initiateKosdaqHistoricalDataCollectionInternal();
-    }
-
-    @Transactional
-    protected void initiateKosdaqHistoricalDataCollectionInternal() {
-        System.out.println("=== KOSDAQ 전체 데이터 수집 시작 ===");
-        try {
-            // 1. totalCount 확인
-            String countUrl = buildApiUrlForTotalCountForIndex(TARGET_INDEX_KOSDAQ, 1, 1);
-            String xmlResponse = restTemplate.getForObject(countUrl, String.class);
-            List<IndexDataDTO> initialData = parseXml(xmlResponse);
-
-            if (initialData.isEmpty() || initialData.get(0).getTotalCount() == null) {
-                System.err.println("⚠ KOSDAQ totalCount 조회 실패 → 중단.");
-                return;
-            }
-
-            int totalCount = initialData.get(0).getTotalCount();
-            int totalPages = (int) Math.ceil((double) totalCount / ROWS_PER_PAGE);
-            String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-            // 2. 전체 페이지 순회 및 DB 저장
-            for (int pageNo = 1; pageNo <= totalPages; pageNo++) {
-                String url = buildApiUrlForIndex(TARGET_INDEX_KOSDAQ, pageNo, ROWS_PER_PAGE, START_DATE_KOSDAQ, today);
-                String pageXml = restTemplate.getForObject(url, String.class);
-                List<IndexDataDTO> pageData = parseXml(pageXml);
-
-                for (IndexDataDTO dto : pageData) {
-                    if (TARGET_INDEX_KOSDAQ.equals(dto.getIdxNm())) {
-                        // KOSDAQ 테이블에 저장하는 전용 DAO 메소드 호출 가정
-                        indexDAO.insertOrUpdateKosdaqIndexData(dto); 
-                    }
-                }
-                System.out.println("KOSDAQ 페이지 " + pageNo + " 완료 (" + pageData.size() + "건)");
-                Thread.sleep(200);
-            }
-
-            System.out.println("=== KOSDAQ 전체 데이터 수집 완료 ===");
-        } catch (Exception e) {
-            System.err.println("KOSDAQ 치명적 오류: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
-
-    // ---------------- React 차트용 (KOSDAQ) ----------------
-    // 🌟 Redis 캐싱 처리 적용: 캐시가 있으면 DB 조회 없이 즉시 반환
+    
+    // KOSDAQ 조회
     @Cacheable(value = KOSDAQ_CACHE_NAME, key = KOSDAQ_CACHE_KEY)
     public List<IndexDataDTO> getKosdaqTimeSeriesData() {
-        // KOSDAQ 테이블에서 조회하는 전용 DAO 메소드 호출 가정
         System.out.println("DEBUG: DB에서 KOSDAQ 히스토리 조회 중 (Cache Miss)...");
-        return indexDAO.selectKosdaqHistory(); 
+        return indexDAO.selectKosdaqHistory();
     }
     
-    // ---------------- KOSDAQ 일별 저장 ----------------
-    // 🌟 Redis 캐싱 처리 적용: DB 업데이트 후 KOSDAQ 캐시 삭제
-    @CacheEvict(value = KOSDAQ_CACHE_NAME, key = KOSDAQ_CACHE_KEY)
+    // ---------------- KOSPI 일일 저장 (수동 호출용) ----------------
+    @Transactional
+    public void saveSingleDayData(String targetDate) {
+        collectDataRangeAndSave(TARGET_INDEX, 1, targetDate, targetDate); 
+    }
+    
+    // ---------------- KOSDAQ 일별 저장 (수동 호출용) ----------------
     @Transactional
     public void saveSingleKosdaqDayData(String targetDate) {
-        try {
-            String url = buildApiUrlForIndex(TARGET_INDEX_KOSDAQ, 1, 1, targetDate, targetDate);
-            String xmlResponse = restTemplate.getForObject(url, String.class);
-            List<IndexDataDTO> data = parseXml(xmlResponse);
-
-            if (!data.isEmpty() && TARGET_INDEX_KOSDAQ.equals(data.get(0).getIdxNm())) {
-                // KOSDAQ 테이블에 저장하는 전용 DAO 메소드 호출 가정
-                indexDAO.insertOrUpdateKosdaqIndexData(data.get(0));
-                System.out.println("KOSDAQ 데이터 DB 저장 완료 및 캐시 [" + KOSDAQ_CACHE_KEY + "] 삭제 완료.");
-            } else {
-                System.out.println("KOSDAQ " + targetDate + " 데이터 없음 또는 idxNm 불일치");
-            }
-        } catch (Exception e) {
-            System.err.println("KOSDAQ 일일 저장 오류: " + e.getMessage());
-        }
+        collectDataRangeAndSave(TARGET_INDEX_KOSDAQ, 1, targetDate, targetDate); 
     }
 }

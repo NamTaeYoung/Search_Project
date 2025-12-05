@@ -168,7 +168,7 @@ function MarketCapPage() {
                                     <tr key={item.stockCode || index}> {/* key는 stockCode가 없을 경우 index 사용 */}
                                         <td>{index + 1}</td> {/* 백엔드에서 순서대로 넘겨주므로 index+1이 순위 */}
                                         <td>{item.stockName || '-'}</td>
-                                        <td>{item.industry || '-'}</td>
+                                        <td>{item.industry || 'ETF'}</td>
                                         
                                         {/* 현재가 */}
                                         <td>{formattedPrice !== '-' ? formattedPrice + '원' : '-'}</td> 

@@ -81,12 +81,29 @@ const CheckButton = styled.button`
   &:hover { background-color: #5a6268; }
 `;
 
-// ⭐ 메시지 스타일 (성공: 초록, 실패: 빨강)
+// 메시지 스타일 (성공: 초록, 실패: 빨강)
 const Message = styled.span`
   font-size: 12px;
   margin-top: 5px;
   display: block;
   color: ${props => props.isValid ? '#28a745' : '#dc3545'};
+  font-weight: bold;
+`;
+
+// 하단 링크 영역
+const Footer = styled.div`
+  margin-top: 30px;
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const LinkText = styled.span`
+  color: #007bff;
+  cursor: pointer;
+  margin-left: 5px;
   font-weight: bold;
 `;
 
@@ -102,11 +119,15 @@ function Signup() {
 
   const [isEmailChecked, setIsEmailChecked] = useState(false);
   
-  // 메시지 상태 관리
+  // 이메일 메시지 상태
   const [emailMessage, setEmailMessage] = useState('');
   const [isEmailValid, setIsEmailValid] = useState(false);
 
-  // 이미 로그인한 상태라면 접근 막기
+  // ⭐ [추가] 비밀번호 메시지 상태
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
+
+  // 로그인 상태 체크
   useEffect(() => {
     if (localStorage.getItem('token')) {
       alert("이미 로그인이 되어있습니다.");
@@ -114,20 +135,41 @@ function Signup() {
     }
   }, [navigate]);
 
+  // 비밀번호 정규식 검사 함수
+  const validatePasswordRegex = (password) => {
+    const regex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*?_]).{8,}$/;
+    return regex.test(password);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
 
+    // 1. 이메일 수정 시 중복확인 초기화
     if (name === 'email') {
       setIsEmailChecked(false);
-      setEmailMessage(''); // 수정 시 메시지 초기화
+      setEmailMessage(''); 
+    }
+
+    // ⭐ 2. 비밀번호 입력 시 실시간 검사
+    if (name === 'password') {
+        if (value.length === 0) {
+            setPasswordMessage("");
+            setIsPasswordValid(false);
+        } else if (!validatePasswordRegex(value)) {
+            setPasswordMessage("8자 이상, 영문/숫자/특수문자를 모두 포함해야 합니다.");
+            setIsPasswordValid(false);
+        } else {
+            setPasswordMessage("✅ 안전한 비밀번호입니다.");
+            setIsPasswordValid(true);
+        }
     }
   };
 
-  // 🔎 이메일 중복 확인 (Alert 제거 -> 메시지 표시)
   const handleCheckEmail = async () => {
-    if (!formData.email) {
-      setEmailMessage("이메일을 입력해주세요.");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setEmailMessage("올바른 이메일 형식이 아닙니다.");
       setIsEmailValid(false);
       return;
     }
@@ -138,12 +180,10 @@ function Signup() {
       });
 
       if (response.data === true) {
-        // ✅ 사용 가능
         setEmailMessage("✅ 사용 가능한 이메일입니다.");
         setIsEmailValid(true);
         setIsEmailChecked(true); 
       } else {
-        // ❌ 사용 불가
         setEmailMessage("❌ 이미 사용 중인 이메일입니다.");
         setIsEmailValid(false);
         setIsEmailChecked(false);
@@ -151,18 +191,28 @@ function Signup() {
 
     } catch (error) {
       console.error("중복 체크 에러:", error);
-      setEmailMessage("❌ 오류가 발생했습니다. 다시 시도해주세요.");
+      setEmailMessage("❌ 오류가 발생했습니다.");
       setIsEmailValid(false);
       setIsEmailChecked(false);
     }
   };
 
-  // 회원가입 요청
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.email || !formData.password || !formData.name) {
+      alert("모든 정보를 입력해주세요.");
+      return;
+    }
+
     if (!isEmailChecked) {
       alert("이메일 중복 확인을 해주세요!");
+      return;
+    }
+
+    // ⭐ 제출 전 한 번 더 확인 (안전장치)
+    if (!isPasswordValid) {
+      alert("비밀번호 조건을 확인해주세요.");
       return;
     }
 
@@ -189,7 +239,11 @@ function Signup() {
 
     } catch (error) {
       console.error('가입 에러:', error);
-      alert('회원가입에 실패했습니다.');
+      if (error.response && error.response.data) {
+         alert(error.response.data);
+      } else {
+         alert('회원가입에 실패했습니다.');
+      }
     }
   };
 
@@ -211,23 +265,31 @@ function Signup() {
               />
               <CheckButton type="button" onClick={handleCheckEmail}>중복 확인</CheckButton>
             </EmailRow>
-            
-            {/* 메시지가 있을 때만 표시 */}
-            {emailMessage && (
-              <Message isValid={isEmailValid}>
-                {emailMessage}
-              </Message>
-            )}
+            {emailMessage && <Message isValid={isEmailValid}>{emailMessage}</Message>}
           </InputGroup>
 
           <InputGroup>
             <label>비밀번호</label>
-            <Input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="비밀번호" />
+            <Input 
+                type="password" 
+                name="password" 
+                value={formData.password} 
+                onChange={handleChange} 
+                placeholder="8자 이상, 영문/숫자/특수문자 포함" 
+            />
+            {/* ⭐ 비밀번호 메시지 표시 */}
+            {passwordMessage && <Message isValid={isPasswordValid}>{passwordMessage}</Message>}
           </InputGroup>
 
           <InputGroup>
             <label>비밀번호 확인</label>
-            <Input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="비밀번호 확인" />
+            <Input 
+                type="password" 
+                name="confirmPassword" 
+                value={formData.confirmPassword} 
+                onChange={handleChange} 
+                placeholder="비밀번호 확인" 
+            />
           </InputGroup>
 
           <InputGroup>
@@ -237,6 +299,22 @@ function Signup() {
 
           <Button type="submit" disabled={!isEmailChecked}>가입하기</Button>
         </form>
+
+        <Footer>
+            <div>
+                이미 계정이 있으신가요? 
+                <LinkText onClick={() => navigate('/')}>
+                  로그인 하러가기
+                </LinkText>
+            </div>
+            <div>
+                비밀번호를 잊으셨나요?
+                <LinkText onClick={() => navigate('/find-pw')}>
+                  비밀번호 찾기
+                </LinkText>
+            </div>
+        </Footer>
+
       </SignupBox>
     </Container>
   );

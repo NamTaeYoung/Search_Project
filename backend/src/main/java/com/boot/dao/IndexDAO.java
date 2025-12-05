@@ -20,5 +20,12 @@ public interface IndexDAO {
     void insertOrUpdateKosdaqIndexData(com.boot.dto.IndexDataDTO dto);
     List<com.boot.dto.IndexDataDTO> selectKosdaqHistory();
     int countKosdaqIndexData(String idxNm);
+    
+
+	 // KOSPI 테이블의 가장 최근 날짜를 'yyyyMMdd' 문자열로 조회
+	 String selectLatestBasDt(String idxNm); 
+	
+	 // KOSDAQ 테이블의 가장 최근 날짜를 'yyyyMMdd' 문자열로 조회
+	 String selectLatestKosdaqBasDt(String idxNm);
 
 }
