@@ -1,105 +1,103 @@
-// src/pages/MarketCapPage.jsx
-
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 // -----------------------------------------------------
-// 1. 데이터 포맷팅 유틸리티 (개선)
+// 1. 데이터 포맷팅 유틸리티
 // -----------------------------------------------------
 
-/** 등락률을 포맷합니다. (예: 1.49 -> +1.49%) */
 const formatChangeRate = (rate) => {
     if (rate === undefined || rate === null || rate === "") return '-';
-    
     const numericRate = Number(rate); 
-    
     if (isNaN(numericRate)) return '-';
-    
     const sign = numericRate > 0 ? '+' : (numericRate < 0 ? '' : '');
     return `${sign}${numericRate.toFixed(2)}%`; 
 };
 
-/** 등락률에 따른 CSS 클래스를 반환합니다. */
-const getChangeRateClass = (rate) => {
-    if (rate > 0) return 'up';
-    if (rate < 0) return 'down';
-    return 'even';
-};
-
-/** 🌟 시가총액 문자열을 보기 좋게 포맷합니다. (예: 490조 -> 490조) */
 const formatMarketCap = (capString) => {
     if (!capString) return '-';
-    
-    // 백엔드에서 '490조', '1,000억' 형태로 넘어온다고 가정하고 처리합니다.
     return capString.trim();
 };
 
+// -----------------------------------------------------
+// 2. 스타일 객체 정의 (styled-components 대체)
+// -----------------------------------------------------
+
+const styles = {
+    container: {
+        padding: '20px 0',
+        maxWidth: '1200px',
+        margin: '0 auto',
+        fontFamily: 'sans-serif',
+    },
+    title: {
+        fontSize: '24px',
+        fontWeight: '600',
+        marginBottom: '25px',
+        borderBottom: '1px solid #eee',
+        paddingBottom: '10px',
+        color: '#333',
+    },
+    description: {
+        color: '#666',
+        marginBottom: '20px',
+    },
+    card: {
+        backgroundColor: '#ffffff',
+        borderRadius: '8px',
+        boxShadow: '0 2px 5px rgba(0, 0, 0, 0.05)',
+        padding: '0',
+        overflow: 'hidden',
+        border: '1px solid #eee',
+    },
+    table: {
+        width: '100%',
+        borderCollapse: 'collapse',
+    },
+    th: {
+        padding: '12px 15px',
+        textAlign: 'center',
+        borderBottom: '1px solid #eee',
+        fontSize: '14px',
+        backgroundColor: '#f8f9fa',
+        fontWeight: '600',
+        color: '#333',
+    },
+    td: {
+        padding: '12px 15px',
+        textAlign: 'right',
+        borderBottom: '1px solid #eee',
+        fontSize: '14px',
+        color: '#333',
+    },
+    tdCenter: {
+        padding: '12px 15px',
+        textAlign: 'center',
+        borderBottom: '1px solid #eee',
+        fontSize: '14px',
+        color: '#333',
+    },
+    link: {
+        textDecoration: 'none',
+        color: '#333',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+    },
+    loading: {
+        textAlign: 'center',
+        padding: '40px',
+        color: '#666',
+    },
+    error: {
+        color: 'red',
+        fontWeight: 'bold',
+        padding: '40px',
+        textAlign: 'center',
+    }
+};
 
 // -----------------------------------------------------
-// 2. Styled Components 정의 (변화 없음)
-// -----------------------------------------------------
-
-const MarketCapContainer = styled.div`
-    padding: 20px 0;
-    max-width: 1200px;
-    margin: 0 auto;
-`;
-
-const Title = styled.h1`
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 25px;
-    border-bottom: 1px solid var(--border-light);
-    padding-bottom: 10px;
-`;
-
-const TableCard = styled.div`
-    background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    padding: 0;
-    overflow: hidden; 
-`;
-
-const RankingTable = styled.table`
-    width: 100%;
-    border-collapse: collapse;
-    
-    th, td {
-        padding: 12px 15px;
-        text-align: right;
-        border-bottom: 1px solid var(--border-light);
-        font-size: 14px;
-    }
-    
-    th {
-        background-color: var(--bg-light);
-        font-weight: 600;
-        color: var(--text-dark);
-        text-align: center;
-    }
-    
-    td:first-child, td:nth-child(2) {
-        text-align: center;
-    }
-
-    .change-rate {
-        font-weight: 600;
-        /* var(--red-up)과 var(--blue-down)는 전역 CSS 변수로 정의되어 있어야 합니다. */
-        color: var(--text-dark); 
-
-        &.up {
-            color: var(--red-up, #ef4444); /* 기본값 지정 */
-        }
-        &.down {
-            color: var(--blue-down, #3b82f6); /* 기본값 지정 */
-        }
-    }
-`;
-
-// -----------------------------------------------------
-// 3. MarketCapPage 컴포넌트 정의
+// 3. MarketCapPage 컴포넌트
 // -----------------------------------------------------
 
 function MarketCapPage() {
@@ -112,14 +110,12 @@ function MarketCapPage() {
             try {
                 setLoading(true);
                 setError(null);
-                // 🚨 MyBatis를 사용하는 Spring Boot API 호출 경로
-                const response = await axios.get('http://localhost:8484/api/stocks/marketcap');
-                
-                // DTO 배열을 받아와서 상태에 저장
+                // API 호출
+                const response = await axios.get('/api/stocks/marketcap');
                 setRankingData(response.data);
             } catch (err) {
                 console.error("시총 데이터 로드 실패:", err);
-                setError("데이터 로드에 실패했습니다. 백엔드 서버 상태와 CORS 설정을 확인해주세요.");
+                setError("데이터 로드에 실패했습니다.");
                 setRankingData([]); 
             } finally {
                 setLoading(false);
@@ -129,75 +125,88 @@ function MarketCapPage() {
         fetchRankingData();
     }, []);
 
-    return (
-        <MarketCapContainer>
-            <Title>시가총액 순위 TOP 100</Title>
-            <p className="text-gray">Oracle DB의 STOCK_INFO 테이블에서 가져온 실시간 시가총액 순위를 보여줍니다.</p>
+    // 등락률에 따른 색상 반환 함수
+    const getColor = (rate) => {
+        if (rate > 0) return '#ef4444'; // 빨강 (상승)
+        if (rate < 0) return '#3b82f6'; // 파랑 (하락)
+        return '#333'; // 검정 (보합)
+    };
 
-            <TableCard>
+    return (
+        <div style={styles.container}>
+            <h1 style={styles.title}>시가총액 순위 TOP 100</h1>
+            <p style={styles.description}>
+                실시간 시가총액 순위 정보를 제공합니다.
+            </p>
+
+            <div style={styles.card}>
                 {loading ? (
-                    <p style={{textAlign: 'center', padding: '20px'}}>데이터를 불러오는 중...</p>
+                    <p style={styles.loading}>데이터를 불러오는 중...</p>
                 ) : error ? (
-                    <p style={{color: 'red', fontWeight: 'bold', padding: '20px'}}>{error}</p>
+                    <p style={styles.error}>{error}</p>
                 ) : (
-                    <RankingTable>
+                    <table style={styles.table}>
                         <thead>
                             <tr>
-                                <th>순위</th>
-                                <th>종목명</th>
-                                <th>업종</th>
-                                <th>현재가</th>
-                                <th>전일 대비</th>
-                                <th>등락률</th>
-                                <th>시가총액</th>
-                                <th>업데이트</th>
+                                <th style={styles.th}>순위</th>
+                                <th style={styles.th}>종목명</th>
+                                <th style={styles.th}>업종</th>
+                                <th style={styles.th}>현재가</th>
+                                <th style={styles.th}>전일 대비</th>
+                                <th style={styles.th}>등락률</th>
+                                <th style={styles.th}>시가총액</th>
+                                <th style={styles.th}>업데이트</th>
                             </tr>
                         </thead>
                         <tbody>
                             {rankingData.map((item, index) => {
-                                // CHANGE_RATE는 Double 타입, PRICE_CHANGE는 Long 타입이라고 가정
                                 const rateString = formatChangeRate(item.changeRate);
-                                const rateClass = getChangeRateClass(item.changeRate); 
+                                const colorStyle = { color: getColor(item.changeRate), fontWeight: '600' };
                                 
-                                // 값이 null/undefined일 경우 '-'로 표시
                                 const formattedPrice = item.price?.toLocaleString() || '-';
                                 const formattedChange = item.priceChange?.toLocaleString() || '-';
                                 const formattedMarketCap = formatMarketCap(item.marketCap);
 
                                 return (
-                                    <tr key={item.stockCode || index}> {/* key는 stockCode가 없을 경우 index 사용 */}
-                                        <td>{index + 1}</td> {/* 백엔드에서 순서대로 넘겨주므로 index+1이 순위 */}
-                                        <td>{item.stockName || '-'}</td>
-                                        <td>{item.industry || 'ETF'}</td>
+                                    <tr key={item.stockCode || index}>
+                                        <td style={styles.tdCenter}>{index + 1}</td>
                                         
-                                        {/* 현재가 */}
-                                        <td>{formattedPrice !== '-' ? formattedPrice + '원' : '-'}</td> 
+                                        {/* 종목명에 링크 연결 */}
+                                        <td style={styles.tdCenter}>
+                                            <Link 
+                                                to={`/stock/${item.stockCode}`}
+                                                style={styles.link}
+                                                onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                                                onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                                            >
+                                                {item.stockName || '-'}
+                                            </Link>
+                                        </td>
+
+                                        <td style={styles.td}>{item.industry || 'ETF'}</td>
+                                        <td style={styles.td}>{formattedPrice !== '-' ? formattedPrice + '원' : '-'}</td>
                                         
-                                        {/* 전일 대비: 색상 클래스 적용 */}
-                                        <td className={`change-rate ${rateClass}`}>
-                                            {formattedChange !== '-' ? formattedChange + '원' : '-'} 
+                                        <td style={{ ...styles.td, ...colorStyle }}>
+                                            {formattedChange !== '-' ? formattedChange : '-'} 
                                         </td>
                                         
-                                        {/* 등락률: 포맷팅된 문자열 사용 */}
-                                        <td className={`change-rate ${rateClass}`}>
+                                        <td style={{ ...styles.td, ...colorStyle }}>
                                             {rateString}
                                         </td>
                                         
-                                        {/* 시가총액: 문자열 포맷팅 */}
-                                        <td>{formattedMarketCap}</td>
+                                        <td style={styles.td}>{formattedMarketCap}</td>
                                         
-                                        <td>
-                                            {/* Date 객체 포맷팅 */}
+                                        <td style={styles.td}>
                                             {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : '-'}
                                         </td>
                                     </tr>
                                 );
                             })}
                         </tbody>
-                    </RankingTable>
+                    </table>
                 )}
-            </TableCard>
-        </MarketCapContainer>
+            </div>
+        </div>
     );
 }
 
