@@ -91,6 +91,20 @@ const StockList = styled.ul`
     font-size: 0.95rem;
   }
 `;
+// ⭐ 링크 스타일드 컴포넌트 추가 (클릭 영역 확장 및 디자인 유지)
+const StyledLink = styled(Link)`
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f9fafb; /* 호버 시 살짝 배경색 변경 */
+  }
+`;
+
 
 const NewsSection = styled.section`
   background-color: #ffffff;
@@ -492,8 +506,10 @@ function HomePage() {
                             <StockList>
                                 {stockData.rising.map((stock, index) => (
                                     <li key={stock.stockCode || index}>
-                                        <strong>{stock.stockName || '정보 없음'}</strong>
-                                        <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{formatRate(stock.changeRate)}</span>
+                                        <StyledLink to={`/stock/${stock.stockCode}`}>
+                                            <strong>{stock.stockName || '정보 없음'}</strong>
+                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>{formatRate(stock.changeRate)}</span>
+                                        </StyledLink>
                                     </li>
                                 ))}
                             </StockList>
@@ -503,8 +519,10 @@ function HomePage() {
                             <StockList>
                                 {stockData.falling.map((stock, index) => (
                                     <li key={stock.stockCode || index}>
-                                        <strong>{stock.stockName || '정보 없음'}</strong>
-                                        <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{formatRate(stock.changeRate)}</span>
+                                        <StyledLink to={`/stock/${stock.stockCode}`}>
+                                            <strong>{stock.stockName || '정보 없음'}</strong>
+                                            <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{formatRate(stock.changeRate)}</span>
+                                        </StyledLink>
                                     </li>
                                 ))}
                             </StockList>
