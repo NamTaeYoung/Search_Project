@@ -358,7 +358,7 @@ function LoginModal({ onClose }) {
       url = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${NAVER_CLIENT_ID}&redirect_uri=${redirectUri}&state=${state}`;
     } else if (provider === 'google') {
       const redirectUri = `${REDIRECT_URI_ROOT}/google`;
-      url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&redirect_uri=${redirectUri}&response_type=code&scope=email profile`;
+      url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=email profile`;
     }
     if (url) window.location.href = url;
   };
