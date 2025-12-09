@@ -11,5 +11,6 @@
 		<mapper resource="mybatis/mappers/StockNewsMapper.xml"/>
 		<mapper resource="mybatis/mappers/stock-mapper.xml"/>
 		<mapper resource="mybatis/mappers/UserMapper.xml"/>
+		<mapper resource="mybatis/mappers/AdminMapper.xml"/>
 	</mappers>
 </configuration>

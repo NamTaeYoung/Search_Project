@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.boot.dao.admin.AdminDAO">
+
+    <!-- 전체 사용자 조회 -->
+    <select id="getUsers" resultType="map">
+        SELECT EMAIL, FULL_NAME, ROLE, CREATED_AT,
+               LOGIN_FAIL_COUNT, LOCK_UNTIL,
+               IS_SUSPENDED, SUSPEND_UNTIL,
+               ACCOUNT_STATUS, REFRESH_TOKEN
+        FROM USER_INFO
+        ORDER BY CREATED_AT DESC
+    </select>
+
+    <!-- 정지 -->
+    <update id="suspendUser">
+        UPDATE USER_INFO
+        SET IS_SUSPENDED = 'Y',
+            SUSPEND_UNTIL = #{until}
+        WHERE EMAIL = #{email}
+    </update>
+
+    <!-- 정지 해제 -->
+    <update id="unsuspendUser">
+        UPDATE USER_INFO
+        SET IS_SUSPENDED = 'N',
+            SUSPEND_UNTIL = NULL
+        WHERE EMAIL = #{email}
+    </update>
+
+    <!-- 권한 변경 -->
+    <update id="changeRole">
+        UPDATE USER_INFO
+        SET ROLE = #{role}
+        WHERE EMAIL = #{email}
+    </update>
+
+    <!-- 로그인 실패 초기화 -->
+    <update id="resetFail">
+        UPDATE USER_INFO
+        SET LOGIN_FAIL_COUNT = 0
+        WHERE EMAIL = #{email}
+    </update>
+
+    <!-- 강제 로그아웃 -->
+    <update id="forceLogout">
+        UPDATE USER_INFO
+        SET REFRESH_TOKEN = NULL
+        WHERE EMAIL = #{email}
+    </update>
+
+    <!-- Refresh Token 목록 -->
+    <select id="getTokens" resultType="map">
+        SELECT EMAIL, REFRESH_TOKEN
+        FROM USER_INFO
+        WHERE REFRESH_TOKEN IS NOT NULL
+    </select>
+
+    <!-- 전체 토큰 초기화 -->
+    <update id="clearTokens">
+        UPDATE USER_INFO
+        SET REFRESH_TOKEN = NULL
+    </update>
+
+    <!-- 로그인 로그 -->
+    <select id="getLoginLog" resultType="map">
+        SELECT *
+        FROM LOGIN_LOG
+        ORDER BY CREATED_AT DESC
+    </select>
+
+    <!-- 관리자 로그 -->
+    <select id="getAdminLog" resultType="map">
+        SELECT *
+        FROM ADMIN_LOG
+        ORDER BY CREATED_AT DESC
+    </select>
+
+    <!-- 대시보드 -->
+    <select id="getDashboard" resultType="map">
+        SELECT
+            (SELECT COUNT(*) FROM USER_INFO) AS total_users,
+            (SELECT COUNT(*) FROM USER_INFO WHERE IS_SUSPENDED='Y') AS suspended_users,
+            (SELECT COUNT(*) FROM USER_INFO WHERE ACCOUNT_STATUS='WAITING_VERIFY') AS waiting_email,
+            (SELECT COUNT(*) FROM USER_INFO WHERE LOGIN_FAIL_COUNT > 3) AS danger_users
+        FROM dual
+    </select>
+
+    <!-- 관리자 로그 기록 -->
+    <insert id="insertAdminLog">
+        INSERT INTO ADMIN_LOG (
+            LOG_ID, ADMIN_EMAIL, TARGET_EMAIL, ACTION, DETAIL
+        )
+        VALUES (
+            ADMIN_LOG_SEQ.NEXTVAL,
+            /* 관리자 ID는 시큐리티에서 가져와야 함 */
+            (SELECT ? FROM dual),
+            #{target}, #{action}, #{detail}
+        )
+    </insert>
+
+</mapper>
