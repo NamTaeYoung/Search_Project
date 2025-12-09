@@ -39,32 +39,68 @@ public class AuthService {
 
     public ResponseEntity<?> login(LoginRequestDTO req) {
 
-    	UserInfoDTO user = userDAO.findByEmail(req.getEmail());
+        UserInfoDTO user = userDAO.findByEmail(req.getEmail());
 
         // 1) 이메일 존재 확인
         if (user == null) {
             return ResponseEntity.status(401).body("❌ 존재하지 않는 이메일입니다.");
         }
 
-        // 2) 이메일 인증 + 계정 상태 체크 (예시)
+        // 2) 이메일 인증 여부 체크
         if (!"ACTIVE".equals(user.getAccountStatus())) {
             return ResponseEntity.status(403)
-                    .body("❌ 이메일 인증이 필요하거나 정지된 계정입니다.");
+                    .body("❌ 이메일 인증이 완료되지 않은 계정입니다.");
         }
 
-        // 3) 계정 잠금 여부 체크 (이미 있던 코드 그대로)
+        // 3) 관리자 정지 여부 체크
+        if ("Y".equals(user.getIsSuspended())) {
+
+            // 정지 해제 시간이 있으면 확인
+            if (user.getSuspendUntil() != null) {
+
+                LocalDateTime until = LocalDateTime.parse(user.getSuspendUntil(), DT_FORMAT);
+
+                // 정지 기간이 지났다면 → 자동 해제
+                if (until.isBefore(LocalDateTime.now())) {
+                    userDAO.clearSuspend(user.getEmail());
+                } 
+                else {
+                    // 정지 기간이 아직 남아 있으면 로그인 차단
+                    String message = "🚫 해당 계정은 정지되었습니다.\n";
+
+                    if (user.getSuspendReason() != null)
+                        message += "사유: " + user.getSuspendReason() + "\n";
+
+                    message += "정지 해제 예정: " + user.getSuspendUntil();
+
+                    return ResponseEntity.status(403).body(message);
+                }
+            } else {
+                // 정지 해제 시간이 없는데 정지인 경우 → 무기한 정지
+                String message = "🚫 해당 계정은 무기한 정지되었습니다.\n";
+
+                if (user.getSuspendReason() != null)
+                    message += "사유: " + user.getSuspendReason();
+
+                return ResponseEntity.status(403).body(message);
+            }
+        }
+
+        // 4) 계정 잠금 여부 체크 (로그인 실패 5회)
         if (user.getLockUntil() != null) {
             LocalDateTime lockUntil = LocalDateTime.parse(user.getLockUntil(), DT_FORMAT);
             if (lockUntil.isAfter(LocalDateTime.now())) {
-                long remainSec = Duration.between(LocalDateTime.now(), lockUntil).getSeconds();
+                long remainSec =
+                        Duration.between(LocalDateTime.now(), lockUntil).getSeconds();
+
                 return ResponseEntity.status(403)
                         .body("🚫 계정이 잠겨있습니다. " + remainSec + "초 후 다시 시도 가능합니다.");
             }
         }
 
-        // 4) 비밀번호 검증
+        // 5) 비밀번호 검증
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            // 실패 횟수 증가 + 잠금 로직 (기존 코드 그대로)
+
             Integer failCount = user.getLoginFailCount();
             int newFailCount = (failCount == null ? 0 : failCount) + 1;
             userDAO.updateFailCount(user.getEmail(), newFailCount);
@@ -81,17 +117,15 @@ public class AuthService {
                     .body("❌ 비밀번호 오류. 남은 시도: " + remain + "회");
         }
 
-        // 5) 로그인 성공 → 실패횟수 초기화
+        // 6) 로그인 성공 → 실패 횟수 초기화
         userDAO.resetFailCount(user.getEmail());
 
-        // 6) Access + Refresh 발급
+        // 7) 토큰 발급
         String accessToken = jwtProvider.createAccessToken(user.getEmail(), user.getRole());
         String refreshToken = jwtProvider.createRefreshToken(user.getEmail(), user.getRole());
-
-        
         userDAO.updateRefreshToken(user.getEmail(), refreshToken);
 
-        // 7) 프론트에 내려줄 사용자 정보 구성 (민감정보 제외)
+        // 8) 유저 정보 반환
         LoginUserInfoDTO userInfo = new LoginUserInfoDTO(
                 user.getEmail(),
                 user.getFullName(),

@@ -97,4 +97,6 @@ public interface UserDAO {
 
     // 4. 관심 뉴스 목록 가져오기 (List 반환)
     List<FavoriteDTO> getFavoriteNews(@Param("email") String email);
+    
+    void clearSuspend(String email);
 }

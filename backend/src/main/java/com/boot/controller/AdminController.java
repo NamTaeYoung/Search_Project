@@ -1,5 +1,6 @@
 package com.boot.controller;
 
+import com.boot.dto.SuspendRequestDTO;
 import com.boot.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,75 +19,72 @@ public class AdminController {
         return adminService.getUsers();
     }
 
-    // ✔ 계정 정지
-    @PostMapping("/users/{email}/suspend")
-    public ResponseEntity<?> suspendUser(
-            @PathVariable String email,
-            @RequestParam int days
-    ) {
-        return adminService.suspendUser(email, days);
+    // 1) 계정 정지
+    @PutMapping("/user/suspend")
+    public ResponseEntity<?> suspendUser(@RequestBody SuspendRequestDTO req) {
+        return adminService.suspendUser(req);
     }
 
-    // ✔ 정지 해제
-    @PostMapping("/users/{email}/unsuspend")
-    public ResponseEntity<?> unsuspendUser(@PathVariable String email) {
+    // 2) 계정 정지 해제
+    @PutMapping("/user/unsuspend")
+    public ResponseEntity<?> unsuspendUser(@RequestParam String email) {
         return adminService.unsuspendUser(email);
     }
 
-    // ✔ 권한 변경
-    @PostMapping("/users/{email}/role")
-    public ResponseEntity<?> changeRole(
-            @PathVariable String email,
-            @RequestParam String role
-    ) {
-        return adminService.changeRole(email, role);
-    }
-
-    // ✔ 로그인 실패 횟수 초기화
-    @PostMapping("/users/{email}/reset-fail")
-    public ResponseEntity<?> resetFail(@PathVariable String email) {
-        return adminService.resetFail(email);
-    }
-
-    // ✔ 강제 로그아웃
-    @PostMapping("/users/{email}/logout")
-    public ResponseEntity<?> forceLogout(@PathVariable String email) {
-        return adminService.forceLogout(email);
-    }
-
-    // ✔ Refresh Token 목록 조회
-    @GetMapping("/tokens")
-    public ResponseEntity<?> getTokens() {
-        return adminService.getTokens();
-    }
-
-    // ✔ 특정 사용자 Refresh Token 삭제
-    @DeleteMapping("/tokens/{email}")
-    public ResponseEntity<?> deleteToken(@PathVariable String email) {
-        return adminService.deleteToken(email);
-    }
-
-    // ✔ 전체 토큰 초기화
-    @DeleteMapping("/tokens")
-    public ResponseEntity<?> clearTokens() {
-        return adminService.clearTokens();
-    }
-
-    // ✔ 로그인 로그 조회
-    @GetMapping("/logs/login")
-    public ResponseEntity<?> getLoginLog() {
-        return adminService.getLoginLog();
-    }
-
-    // ✔ 관리자 활동 로그 조회
-    @GetMapping("/logs/admin")
-    public ResponseEntity<?> getAdminLog() {
-        return adminService.getAdminLog();
-    }
-
-    // ✔ 관리자 대시보드 통계
-    @GetMapping("/dashboard")
-    public ResponseEntity<?> dashboard() {
-        return adminService.dashboard();
-    }
+//    // ✔ 권한 변경
+//    @PostMapping("/users/{email}/role")
+//    public ResponseEntity<?> changeRole(
+//            @PathVariable String email,
+//            @RequestParam String role
+//    ) {
+//        return adminService.changeRole(email, role);
+//    }
+//
+//    // ✔ 로그인 실패 횟수 초기화
+//    @PostMapping("/users/{email}/reset-fail")
+//    public ResponseEntity<?> resetFail(@PathVariable String email) {
+//        return adminService.resetFail(email);
+//    }
+//
+//    // ✔ 강제 로그아웃
+//    @PostMapping("/users/{email}/logout")
+//    public ResponseEntity<?> forceLogout(@PathVariable String email) {
+//        return adminService.forceLogout(email);
+//    }
+//
+//    // ✔ Refresh Token 목록 조회
+//    @GetMapping("/tokens")
+//    public ResponseEntity<?> getTokens() {
+//        return adminService.getTokens();
+//    }
+//
+//    // ✔ 특정 사용자 Refresh Token 삭제
+//    @DeleteMapping("/tokens/{email}")
+//    public ResponseEntity<?> deleteToken(@PathVariable String email) {
+//        return adminService.deleteToken(email);
+//    }
+//
+//    // ✔ 전체 토큰 초기화
+//    @DeleteMapping("/tokens")
+//    public ResponseEntity<?> clearTokens() {
+//        return adminService.clearTokens();
+//    }
+//
+//    // ✔ 로그인 로그 조회
+//    @GetMapping("/logs/login")
+//    public ResponseEntity<?> getLoginLog() {
+//        return adminService.getLoginLog();
+//    }
+//
+//    // ✔ 관리자 활동 로그 조회
+//    @GetMapping("/logs/admin")
+//    public ResponseEntity<?> getAdminLog() {
+//        return adminService.getAdminLog();
+//    }
+//
+//    // ✔ 관리자 대시보드 통계
+//    @GetMapping("/dashboard")
+//    public ResponseEntity<?> dashboard() {
+//        return adminService.dashboard();
+//    }
 }

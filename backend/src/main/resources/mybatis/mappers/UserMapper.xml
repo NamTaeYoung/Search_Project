@@ -26,6 +26,9 @@
         <result property="accountStatus" column="ACCOUNT_STATUS"/>
         <result property="suspendUntil" column="SUSPEND_UNTIL"/>
 		<result property="refreshToken" column="REFRESH_TOKEN"/>
+		<result property="isSuspended" column="IS_SUSPENDED"/>
+		<result property="suspendReason" column="SUSPEND_REASON"/>
+		
     </resultMap>
 
     <!-- 1) findByEmail - 로그인 시 사용하는 유저 조회 -->
@@ -287,5 +290,14 @@
         DELETE FROM USER_FAVORITE_NEWS
         WHERE EMAIL = #{email} AND NEWS_ID = #{newsId}
     </delete>
-
+	
+	<!-- 기간 지나면 정지 해제-->	
+	<update id="clearSuspend">
+	    UPDATE USER_INFO
+	    SET 
+	        IS_SUSPENDED = 'N',
+	        SUSPEND_UNTIL = NULL,
+	        SUSPEND_REASON = NULL
+	    WHERE EMAIL = #{email}
+</update>
 </mapper>

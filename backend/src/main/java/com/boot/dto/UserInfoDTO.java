@@ -30,4 +30,7 @@ public class UserInfoDTO {
     
     // JWT Refresh Token (DB 저장용)
     private String refreshToken; 
+    
+    private String isSuspended;      // Y / N
+    private String suspendReason;    // 정지 사유
 }
