@@ -14,6 +14,7 @@ import com.boot.service.StockInfoService;
 import com.boot.service.StockNewsService;
 import com.boot.service.StockService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import lombok.RequiredArgsConstructor;
 
@@ -94,19 +95,18 @@ public class StockController {
         return movers;
     }
     
-    private final StockRealtimeHandler stockRealtimeHandler;
+    
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @PostMapping("/realtime")
-    public String receiveRealtimeData(@RequestBody Map<String, Object> payload) {
-        String stockCode = (String) payload.get("stockCode");
-        // 'data' 필드를 Object로 받거나, Map으로 명시적으로 받도록 처리
-        Object data = payload.get("data"); 
+    public void receiveStock(@RequestBody StockData stockData) {
+        // React에 브로드캐스트
+        messagingTemplate.convertAndSend("/topic/stock/" + stockData.code, stockData);
+    }
 
-        if (stockCode != null && data != null) {
-            // WebSocketHandler를 통해 클라이언트(React)로 데이터 푸시
-            stockRealtimeHandler.pushStockData(stockCode, data);
-            return "Push Success";
-        }
-        return "Invalid Payload";
+    public static class StockData {
+        public String code;
+        public String currentPrice;
     }
 }

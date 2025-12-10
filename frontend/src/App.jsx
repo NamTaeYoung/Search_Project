@@ -40,7 +40,7 @@ import MobileApprovePage from './pages/MobileApprovePage';
 //관리자 권한 판단
 import AdminRoute from './routes/AdminRoute';
 
-import StockRealtime from './pages/StockRealtime';
+import StockTest from "./pages/StockTest";
 
 function App() {
   return (
@@ -69,7 +69,7 @@ function App() {
             <Route path="oauth/callback/naver" element={<SocialLoginCallback provider="naver" />} />
             <Route path="oauth/callback/google" element={<SocialLoginCallback provider="google" />} />
             <Route path="mobile-approve" element={<MobileApprovePage />} />
-            <Route path="/stock/test/:stockCode" element={<StockRealtime />} />
+            <Route path="/stock/test/:code" element={<StockTest />} />
           </Route>
 
           {/*관리자 페이지*/}

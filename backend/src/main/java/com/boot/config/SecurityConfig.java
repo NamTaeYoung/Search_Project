@@ -30,6 +30,7 @@ public class SecurityConfig {
 	            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 	        .and()
 	        .authorizeHttpRequests()
+	        .antMatchers("/ws-stock/**").permitAll()
 	
 	        // 1. 항상 더 구체적인 URL 먼저
 	        .antMatchers(HttpMethod.POST, "/auth/qr/approve").authenticated()
@@ -46,6 +47,8 @@ public class SecurityConfig {
 	
 	        // 5. 모든 나머지 요청 로그인 필요
 	        .anyRequest().authenticated()
+	        
+	        
 	
 	        .and()
 	        .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
