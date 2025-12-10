@@ -67,18 +67,18 @@ public class AdminController {
     public ResponseEntity<?> clearAllTokens() {
         return adminService.clearAllTokens();
     }
-//
-//    // ✔ 로그인 로그 조회
-//    @GetMapping("/logs/login")
-//    public ResponseEntity<?> getLoginLog() {
-//        return adminService.getLoginLog();
-//    }
-//
-//    // ✔ 관리자 활동 로그 조회
-//    @GetMapping("/logs/admin")
-//    public ResponseEntity<?> getAdminLog() {
-//        return adminService.getAdminLog();
-//    }
+
+    // ✔ 로그인 로그 조회
+    @GetMapping("/logs/login")
+    public ResponseEntity<?> getLoginLog() {
+        return adminService.getLoginLog();
+    }
+
+    // ✔ 관리자 활동 로그 조회
+    @GetMapping("/logs/admin")
+    public ResponseEntity<?> getAdminLog() {
+        return adminService.getAdminLog();
+    }
 //
 //    // ✔ 관리자 대시보드 통계
 //    @GetMapping("/dashboard")

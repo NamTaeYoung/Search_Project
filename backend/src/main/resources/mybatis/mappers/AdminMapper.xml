@@ -133,19 +133,31 @@
 	    WHERE REFRESH_TOKEN IS NOT NULL
 	</update>
 
-<!--     로그인 로그 -->
-<!--    <select id="getLoginLog" resultType="map">-->
-<!--        SELECT *-->
-<!--        FROM LOGIN_LOG-->
-<!--        ORDER BY CREATED_AT DESC-->
-<!--    </select>-->
+	<!-- 로그인 로그 -->
+    <select id="getLoginLog" resultType="map">
+	    SELECT
+	        LOG_ID,
+	        EMAIL,
+	        STATUS,
+	        IP_ADDRESS,
+	        USER_AGENT,
+	        TO_CHAR(CREATED_AT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_AT
+	    FROM LOGIN_LOG
+	    ORDER BY LOG_ID DESC
+	</select>
 
-<!--     관리자 로그 -->
-<!--    <select id="getAdminLog" resultType="map">-->
-<!--        SELECT *-->
-<!--        FROM ADMIN_LOG-->
-<!--        ORDER BY CREATED_AT DESC-->
-<!--    </select>-->
+	<!-- 관리자 로그 -->
+	<select id="getAdminLog" resultType="map">
+	    SELECT
+	        LOG_ID,
+	        ADMIN_EMAIL,
+	        TARGET_EMAIL,
+	        ACTION,
+	        DETAIL,
+	        TO_CHAR(CREATED_AT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_AT
+	    FROM ADMIN_LOG
+	    ORDER BY LOG_ID DESC
+	</select>
 
 <!--     대시보드 -->
 <!--    <select id="getDashboard" resultType="map">-->

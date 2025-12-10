@@ -217,14 +217,16 @@ public class AdminService {
 
         return ResponseEntity.ok("전체 Refresh Token이 초기화되었습니다. 모든 사용자가 로그아웃됩니다.");
     }
-//
-//    public ResponseEntity<?> getLoginLog() {
-//        return ResponseEntity.ok(adminDAO.getLoginLog());
-//    }
-//
-//    public ResponseEntity<?> getAdminLog() {
-//        return ResponseEntity.ok(adminDAO.getAdminLog());
-//    }
+    
+    // 로그인 로그 조회
+    public ResponseEntity<?> getLoginLog() {
+        return ResponseEntity.ok(adminDAO.getLoginLog());
+    }
+
+    // 관리자 로그 조회
+    public ResponseEntity<?> getAdminLog() {
+        return ResponseEntity.ok(adminDAO.getAdminLog());
+    }
 //
 //    public ResponseEntity<?> dashboard() {
 //        return ResponseEntity.ok(adminDAO.getDashboard());

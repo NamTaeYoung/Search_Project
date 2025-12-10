@@ -42,10 +42,12 @@ public interface AdminDAO {
     
     // 전체 Refresh Token 초기화
     void clearAllTokens();
-//
-//    List<Map<String,Object>> getLoginLog();
-//
-//    List<Map<String,Object>> getAdminLog();
+    
+    // 로그인 로그 조회
+    List<Map<String,Object>> getLoginLog();
+
+    // 관리자 로그 조회
+    List<Map<String,Object>> getAdminLog();
 //
 //    Map<String,Object> getDashboard();
 
