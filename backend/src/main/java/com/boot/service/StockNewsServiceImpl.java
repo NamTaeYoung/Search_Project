@@ -231,13 +231,12 @@ public class StockNewsServiceImpl implements StockNewsService {
 
 	@Override
 	public List<String> getIndustries() {
-		// TODO Auto-generated method stub
-		return null;
+		return stockNewsDAO.getIndustries();
 	}
+	
 
 	@Override
 	public List<StockNewsDTO> getNewsByIndustry(String industry) {
-		// TODO Auto-generated method stub
-		return null;
+		return stockNewsDAO.getNewsByIndustry(industry);
 	}
 }
