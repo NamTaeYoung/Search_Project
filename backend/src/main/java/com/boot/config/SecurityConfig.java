@@ -30,7 +30,10 @@ public class SecurityConfig {
 	            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 	        .and()
 	        .authorizeHttpRequests()
-	        .antMatchers("/ws-stock/**").permitAll()
+	        // 구독 및 해제 요청은 인증 없이 허용 (Python과의 통신을 위한 경로)
+            .antMatchers("/api/stocks/subscribe/**", "/api/stocks/unsubscribe/**").permitAll() 
+            // WebSocket 연결 경로도 허용
+            .antMatchers("/ws-stock/**").permitAll()
 	
 	        // 1. 항상 더 구체적인 URL 먼저
 	        .antMatchers(HttpMethod.POST, "/auth/qr/approve").authenticated()

@@ -13,7 +13,7 @@ if (typeof global === 'undefined') {
 
 createRoot(document.getElementById('root')).render(
   // <sTrictMode></sTrictMode> 이건 함수를 두 번 실행하는 것인데 귀찮으면 주석처리 해도 됨
-  <StrictMode>
+  // <StrictMode>
     <App />
-  </StrictMode>,
+  // </StrictMode>,
 )
