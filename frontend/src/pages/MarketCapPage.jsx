@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 
-// -----------------------------------------------------
-// 1. 데이터 포맷팅
-// -----------------------------------------------------
+// ------------------------
+// 데이터 포맷팅
+// ------------------------
 const formatChangeRate = (rate) => {
   if (rate === undefined || rate === null || rate === "") return '-';
   const numericRate = Number(rate);
@@ -17,9 +17,9 @@ const formatChangeRate = (rate) => {
 
 const formatMarketCap = (capString) => (!capString ? '-' : capString.trim());
 
-// -----------------------------------------------------
-// 2. 스타일
-// -----------------------------------------------------
+// ------------------------
+// 스타일
+// ------------------------
 const styles = {
   container: { padding: '20px 0', maxWidth: '1200px', margin: '0 auto' },
   title: { fontSize: '24px', fontWeight: '600', marginBottom: '25px' },
@@ -32,9 +32,9 @@ const styles = {
   paging: { display: 'flex', justifyContent: 'center', gap: '8px', padding: '20px' }
 };
 
-// -----------------------------------------------------
-// 3. 컴포넌트
-// -----------------------------------------------------
+// ------------------------
+// 컴포넌트
+// ------------------------
 function MarketCapPage() {
   const [rankingData, setRankingData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,35 +42,34 @@ function MarketCapPage() {
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 10;
 
-  // STOMP 관련 ref
   const stompRef = useRef(null);
   const subRefs = useRef([]);
+  const subscribedFlaskRef = useRef(new Set());
 
   // -------------------------------
   // REST: 시가총액 데이터 가져오기
   // -------------------------------
-  useEffect(() => {
-    const fetchRankingData = async () => {
-      setLoading(true);
-      const response = await axios.get(
-        `/api/stocks/marketcap?page=${currentPage}&size=${itemsPerPage}`
-      );
-      const list = response.data.list || [];
-      const totalCount = response.data.totalCount || 0;
+  const fetchRankingData = async (page) => {
+    setLoading(true);
+    const response = await axios.get(
+      `/api/stocks/marketcap?page=${page}&size=${itemsPerPage}`
+    );
+    const list = response.data.list || [];
+    const totalCount = response.data.totalCount || 0;
 
-      setRankingData(list);
-      setTotalPages(Math.ceil(totalCount / itemsPerPage));
-      setLoading(false);
-    };
+    setRankingData(list);
+    setTotalPages(Math.ceil(totalCount / itemsPerPage));
+    setLoading(false);
 
-    fetchRankingData();
-  }, [currentPage]);
+    // 페이지 변경 시 구독 갱신
+    resetSubscriptions(list);
+  };
 
   // -------------------------------
-  // WebSocket / STOMP 연결
+  // STOMP WebSocket 연결
   // -------------------------------
   useEffect(() => {
-    const sock = new SockJS("http://localhost:8484/ws-stock"); // 스프링 서버 주소
+    const sock = new SockJS("http://localhost:8484/ws-stock");
     const client = new Client({
       webSocketFactory: () => sock,
       reconnectDelay: 5000,
@@ -78,7 +77,8 @@ function MarketCapPage() {
 
     client.onConnect = () => {
       console.log("🟢 WebSocket 연결 성공");
-      subscribeStocks(rankingData); // 현재 데이터 구독
+      // 초기 페이지 데이터 fetch 후 구독
+      fetchRankingData(currentPage);
     };
 
     client.onStompError = (frame) => {
@@ -89,26 +89,23 @@ function MarketCapPage() {
     stompRef.current = client;
 
     return () => {
+      // 언마운트 시 전체 구독 해제
       subRefs.current.forEach(sub => sub.unsubscribe());
-      client.deactivate();
+      subRefs.current = [];
+      if (client) client.deactivate();
+      unsubscribeFlask(Array.from(subscribedFlaskRef.current));
     };
   }, []);
 
   // -------------------------------
-  // STOMP 구독
+  // STOMP 구독 초기화 + 새 구독
   // -------------------------------
   const subscribeStocks = (list) => {
     const client = stompRef.current;
-    if (!client || !client.connected) {
-      console.log("⚠ STOMP 미연결 - 구독 지연");
-      return;
-    }
+    if (!client || !client.connected) return;
 
-    // 기존 구독 제거
     subRefs.current.forEach(sub => sub.unsubscribe());
     subRefs.current = [];
-
-    console.log("구독 시작:", list.map(x => x.stockCode));
 
     list.forEach(item => {
       const code = item.stockCode;
@@ -126,11 +123,49 @@ function MarketCapPage() {
     });
   };
 
-  // rankingData 변경 시 구독 갱신
-  useEffect(() => {
+  // -------------------------------
+  // Flask 구독 초기화 + 새 구독
+  // -------------------------------
+  const subscribeFlask = (list) => {
+    // 이전 구독 해제
+    unsubscribeFlask(Array.from(subscribedFlaskRef.current));
+
+    // 새 구독
+    list.forEach(item => {
+      const code = item.stockCode;
+      fetch("http://localhost:5000/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      subscribedFlaskRef.current.add(code);
+    });
+  };
+
+  const unsubscribeFlask = (codes) => {
+    if (!codes || codes.length === 0) return;
+    fetch("http://localhost:5000/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codes }),
+    });
+    codes.forEach(code => subscribedFlaskRef.current.delete(code));
+  };
+
+  // -------------------------------
+  // 전체 구독 리셋 (페이지 변경 시)
+  // -------------------------------
+  const resetSubscriptions = (list) => {
     if (!stompRef.current?.connected) return;
-    subscribeStocks(rankingData);
-  }, [rankingData]);
+    subscribeStocks(list);
+    subscribeFlask(list);
+  };
+
+  // 페이지 변경
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchRankingData(page);
+  };
 
   const getColor = (rate) => rate > 0 ? '#ef4444' : rate < 0 ? '#3b82f6' : '#333';
 
@@ -182,12 +217,11 @@ function MarketCapPage() {
               </tbody>
             </table>
 
-            {/* 페이징 */}
             <div style={styles.paging}>
               {Array.from({ length: totalPages }).map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setCurrentPage(i + 1)}
+                  onClick={() => handlePageChange(i + 1)}
                   style={{
                     padding: '6px 12px',
                     border: '1px solid #ccc',

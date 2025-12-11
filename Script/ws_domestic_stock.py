@@ -17,16 +17,31 @@ SPRING_URL = "http://localhost:8484/api/stocks/realtime"
 WS_URL = "ws://ops.koreainvestment.com:31000"
 MAX_SUBS = 20
 
-subscribed_codes = set()      # React에서 현재 보고 있는 종목
-active_remote_subs = set()    # 실제 서버에 등록된 종목
+# ------------------------
+# 상태 관리
+# ------------------------
+subscribed_codes = set()        # React에서 원하는 종목
+active_remote_subs = set()      # 실제 WS 서버 등록된 종목
 lock = threading.Lock()
 
+# ------------------------
+# asyncio 큐 생성
+# ------------------------
+subscribe_queue = asyncio.Queue()
+unsubscribe_queue = asyncio.Queue()
+
+# ------------------------
+# 전역 이벤트 루프 생성
+# ------------------------
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+# ------------------------
+# Flask 앱
+# ------------------------
 app = Flask(__name__)
 CORS(app)
 
-# ------------------------
-# Flask API
-# ------------------------
 @app.route("/subscribe", methods=["POST"])
 def subscribe():
     data = request.get_json(force=True, silent=True)
@@ -40,6 +55,10 @@ def subscribe():
         if len(subscribed_codes) >= MAX_SUBS:
             return f"MAX {MAX_SUBS} SUBSCRIPTIONS", 400
         subscribed_codes.add(code)
+
+    # 큐에 넣기 (전역 루프 사용)
+    asyncio.run_coroutine_threadsafe(subscribe_queue.put(code), loop)
+
     print(f"✅ [구독 요청] {code} => 현재 구독 목록: {subscribed_codes}")
     return "OK", 200
 
@@ -48,21 +67,25 @@ def unsubscribe():
     data = request.get_json(force=True, silent=True)
     if not data:
         return "NO BODY", 400
-    codes = data.get("codes") or [data.get("code")]
+
+    codes = data.get("codes")
     if not codes:
-        return "NO CODES", 400
-    if isinstance(codes, str):
-        codes = [codes]
+        codes = [data.get("code")]
+    if not codes or not isinstance(codes, list):
+        return "NO CODES or Invalid Format", 400
 
     with lock:
         for c in codes:
             c = str(c).strip()
             if c in subscribed_codes:
                 subscribed_codes.discard(c)
-                print(f"🧹 [구독 해제 요청] {c}")
-            if c in active_remote_subs:
-                active_remote_subs.discard(c)
-                print(f"🛑 [서버 구독 해제 완료] {c}")
+                print(f"🧹 [구독 해제 요청] {c} (subscribed_codes에서 제거)")
+
+    # 큐에 넣기 (전역 루프 사용)
+    for c in codes:
+        asyncio.run_coroutine_threadsafe(unsubscribe_queue.put(c), loop)
+
+    print(f"=> 현재 구독 목록: {subscribed_codes}")
     return "OK", 200
 
 @app.route("/subscriptions", methods=["GET"])
@@ -71,7 +94,7 @@ def list_subscriptions():
         return jsonify(sorted(list(subscribed_codes))), 200
 
 # ------------------------
-# Stock Forwarding
+# Spring 전송
 # ------------------------
 def send_stock_to_spring(code, currentPrice, priceChange, changeRate):
     payload = {
@@ -80,7 +103,6 @@ def send_stock_to_spring(code, currentPrice, priceChange, changeRate):
         "priceChange": priceChange,
         "changeRate": changeRate
     }
-    # 화면에 표시되는 종목만 Spring 전송
     print(f"➡ Spring 전송: {payload}")
     headers = {"Content-Type": "application/json"}
     try:
@@ -98,7 +120,6 @@ def parse_and_forward_stock_payload(packed_str):
 
         with lock:
             if code not in subscribed_codes:
-                # 화면에 표시되지 않는 종목은 무시
                 return
 
         send_stock_to_spring(code, currentPrice, priceChange, changeRate)
@@ -109,41 +130,45 @@ def parse_and_forward_stock_payload(packed_str):
 # WebSocket Manager
 # ------------------------
 async def single_socket_manager():
-    g_approval_key = "f55f732a-da86-41ae-9162-307671c9b2d6"
+    g_approval_key = "18e7b1ee-18a3-468d-b2ed-53de0b6d510a"
     custtype = "P"
     reconnect_backoff = 1
 
     while True:
         try:
             async with websockets.connect(WS_URL, ping_interval=None) as websocket:
+                print("🔗 WebSocket 연결 성공")
+
                 while True:
-                    with lock:
-                        to_sub = subscribed_codes - active_remote_subs
-                        to_unsub = active_remote_subs - subscribed_codes
-
-                    # 서버 구독 해제
-                    for code in to_unsub:
-                        payload = {
-                            "header": {"approval_key": g_approval_key, "custtype": custtype, "tr_type": "0", "content-type": "utf-8"},
-                            "body": {"input": {"tr_id": "H0STCNT0", "tr_key": code}}
-                        }
-                        await websocket.send(json.dumps(payload))
+                    # Flask에서 큐로 들어온 구독/해제 요청 처리
+                    while not subscribe_queue.empty():
+                        code = await subscribe_queue.get()
                         with lock:
-                            active_remote_subs.discard(code)
-                        print(f"🛑 [서버 구독 해제 완료] {code}")
+                            if code not in subscribed_codes:
+                                continue
+                        if code not in active_remote_subs:
+                            payload = {
+                                "header": {"approval_key": g_approval_key, "custtype": custtype, "tr_type": "1", "content-type": "utf-8"},
+                                "body": {"input": {"tr_id": "H0STCNT0", "tr_key": code}}
+                            }
+                            await websocket.send(json.dumps(payload))
+                            with lock:
+                                active_remote_subs.add(code)
+                            print(f"✅ [서버 구독 완료] {code}")
 
-                    # 서버 구독 등록
-                    for code in to_sub:
-                        payload = {
-                            "header": {"approval_key": g_approval_key, "custtype": custtype, "tr_type": "1", "content-type": "utf-8"},
-                            "body": {"input": {"tr_id": "H0STCNT0", "tr_key": code}}
-                        }
-                        await websocket.send(json.dumps(payload))
-                        with lock:
-                            active_remote_subs.add(code)
-                        print(f"✅ [서버 구독 완료] {code}")
+                    while not unsubscribe_queue.empty():
+                        code = await unsubscribe_queue.get()
+                        if code in active_remote_subs:
+                            payload = {
+                                "header": {"approval_key": g_approval_key, "custtype": custtype, "tr_type": "0", "content-type": "utf-8"},
+                                "body": {"input": {"tr_id": "H0STCNT0", "tr_key": code}}
+                            }
+                            await websocket.send(json.dumps(payload))
+                            with lock:
+                                active_remote_subs.discard(code)
+                            print(f"🛑 [서버 구독 해제 완료] {code}")
 
-                    # 데이터 수신 (화면에 표시되는 종목만 Spring 전송)
+                    # WS 데이터 수신
                     try:
                         data = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                         if data and isinstance(data, bytes):
@@ -168,10 +193,15 @@ async def single_socket_manager():
 # Main
 # ------------------------
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=lambda: app.run(host="0.0.0.0", port=FLASK_PORT, debug=False, use_reloader=False), daemon=True)
+    # Flask 쓰레드 실행
+    flask_thread = threading.Thread(
+        target=lambda: app.run(host="0.0.0.0", port=FLASK_PORT, debug=False, use_reloader=False),
+        daemon=True
+    )
     flask_thread.start()
 
+    # WebSocket manager 실행
     try:
-        asyncio.run(single_socket_manager())
+        loop.run_until_complete(single_socket_manager())
     except KeyboardInterrupt:
         print("프로그램 종료")
