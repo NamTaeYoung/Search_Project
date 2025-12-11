@@ -40,6 +40,7 @@ import Tokens from "./admin/pages/Tokens";
 import LogsLogin from "./admin/pages/LogsLogin";
 import LogsAdmin from "./admin/pages/LogsAdmin";
 import Settings from "./admin/pages/Settings";
+import IndustryDetailPage from './pages/IndustryDetailPage';
 
 function App() {
   return (
@@ -69,6 +70,7 @@ function App() {
             <Route path="oauth/callback/google" element={<SocialLoginCallback provider="google" />} />
             <Route path="mobile-approve" element={<MobileApprovePage />} />
             <Route path="/stock/test/:code" element={<StockTest />} />
+            <Route path="industry/:industryName" element={<IndustryDetailPage />} />
           </Route>
           {/* 관리자 부분 추가 */}
           <Route path="/admin" element={ <AdminRoute> <AdminLayout /> </AdminRoute> }>

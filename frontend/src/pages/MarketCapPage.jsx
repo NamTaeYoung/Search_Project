@@ -107,7 +107,11 @@ function MarketCapPage() {
                                                 </Link>
                                             </td>
 
-                                            <td style={styles.td}>{item.industry || 'ETF'}</td>
+                                            <td style={styles.td}>
+                                                <Link to={`/industry/${item.industry}`} style={{ marginLeft: '5px', color: '#007bff' }}>
+                                                    {item.industry || 'ETF'}
+                                                </Link>
+                                            </td>
                                             <td style={styles.td}>{item.price?.toLocaleString()}원</td>
                                             <td style={{ ...styles.td, ...colorStyle }}>
                                                 {item.priceChange?.toLocaleString()}

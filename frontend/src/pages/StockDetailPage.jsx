@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 
 // ==========================================
@@ -363,7 +363,11 @@ function StockDetailPage() {
 
         <div style={styles.metaData}>
             <span style={styles.metaSpan}><strong>시장:</strong> {stockInfo.marketType || '-'}</span>
-            <span style={styles.metaSpan}><strong>업종:</strong> {stockInfo.industry || '-'}</span>
+            <span style={styles.metaSpan}><strong>업종:</strong>
+            <Link to={`/industry/${stockInfo.industry}`}>
+              {stockInfo.industry || '-'}
+            </Link>
+            </span>
             <span style={styles.metaSpan}><strong>시가총액:</strong> {stockInfo.marketCap || '-'}</span>
             <span style={styles.metaSpan}><strong>기준일:</strong> {stockInfo.updatedAt || '-'}</span>
         </div>
