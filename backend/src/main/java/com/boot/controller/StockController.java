@@ -78,14 +78,25 @@ public class StockController {
         return "OK";
     }
     // 시가총액 순위 조회 엔드포인트 추가
-    @GetMapping("/marketcap") // 최종 경로: /api/stocks/marketcap
-    public ResponseEntity<List<StockInfoDTO>> getMarketCapRanking() {
-        
-        // StockService의 메서드를 호출
-        List<StockInfoDTO> ranking = stockService.selectTop100MarketCap(); 
-        
-        return ResponseEntity.ok(ranking);
+    @GetMapping("/marketcap")
+    public ResponseEntity<Map<String, Object>> getMarketCapRanking(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+
+        List<StockInfoDTO> list = stockService.selectTop100MarketCapPaged(page, size);
+
+        // 총 100개 고정
+        int totalCount = 100;
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", list);
+        result.put("totalCount", totalCount);
+
+        return ResponseEntity.ok(result);
     }
+
+
     
     // 🌟 급등/급락 종목 조회 API
     //테스트용 주석

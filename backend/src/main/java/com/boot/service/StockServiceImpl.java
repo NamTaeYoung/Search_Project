@@ -30,9 +30,12 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
-    public List<StockInfoDTO> selectTop100MarketCap() {
-        return stockDAO.selectTop100MarketCap();
+    public List<StockInfoDTO> selectTop100MarketCapPaged(int page, int size) {
+        int start = (page - 1) * size + 1;
+        int end = page * size;
+        return stockDAO.selectTop100MarketCapPaged(start, end);
     }
+
     
     @Override
     public List<StockInfoDTO> selectTopRisingStocks() {

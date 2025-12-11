@@ -8,7 +8,8 @@ public interface StockService {
     void insertStockInfo(StockInfoDTO dto);
     void insertStockNews(StockNewsDTO dto);
 
-    List<StockInfoDTO> selectTop100MarketCap();
+    List<StockInfoDTO> selectTop100MarketCapPaged(int page, int size);
+
     
     List<StockInfoDTO> selectTopRisingStocks();
     List<StockInfoDTO> selectTopFallingStocks();

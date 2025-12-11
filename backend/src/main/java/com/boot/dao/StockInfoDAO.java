@@ -3,6 +3,8 @@ package com.boot.dao;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
 import com.boot.dto.StockInfoDTO;
 
 @Mapper
@@ -12,7 +14,11 @@ public interface StockInfoDAO {
 
     StockInfoDTO getStockDetail(String stockCode);
 
-    List<StockInfoDTO> selectTop100MarketCap();
+    List<StockInfoDTO> selectTop100MarketCapPaged(
+    	    @Param("start") int start,
+    	    @Param("end") int end
+    	);
+
     
     // 🌟 급등 종목 (등락률 상위 3개)
     List<StockInfoDTO> selectTopRisingStocks();

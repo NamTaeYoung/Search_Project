@@ -19,32 +19,34 @@
         WHERE STOCK_CODE = #{stockCode}
     </select>
 
-	<select id="selectTop100MarketCap" resultType="com.boot.dto.StockInfoDTO">
-        SELECT *
-    FROM (
-        SELECT
-            STOCK_CODE,
-            STOCK_NAME,
-            MARKET_TYPE,
-            INDUSTRY,
-            PRICE,
-            PRICE_CHANGE,
-            CHANGE_RATE,
-            MARKET_CAP,
-            UPDATED_AT
-        FROM
-            STOCK_INFO
-        ORDER BY
-            -- MARKET_CAP 문자열을 숫자로 변환하여 정렬
-            TO_NUMBER(
-                REPLACE(
-                    REPLACE(
-                        REPLACE(MARKET_CAP, '조', '000000000000'), 
-                    '억', '00000000'), 
-                ',', '') 
-            ) DESC
-    )
-    WHERE ROWNUM &lt;= 100  </select>
+	<select id="selectTop100MarketCapPaged" resultType="com.boot.dto.StockInfoDTO">
+	    SELECT *
+	    FROM (
+	        SELECT inner_q.*, ROWNUM AS rn
+	        FROM (
+	            SELECT
+	                STOCK_CODE,
+	                STOCK_NAME,
+	                MARKET_TYPE,
+	                INDUSTRY,
+	                PRICE,
+	                PRICE_CHANGE,
+	                CHANGE_RATE,
+	                MARKET_CAP,
+	                UPDATED_AT
+	            FROM STOCK_INFO
+	            ORDER BY TO_NUMBER(REPLACE(MARKET_CAP, ',', '')) DESC
+	        ) inner_q
+	        WHERE ROWNUM &lt;= #{end}
+	    )
+	    WHERE rn &gt;= #{start}
+	</select>
+
+
+
+
+
+
     
     <select id="selectTopRisingStocks" resultType="com.boot.dto.StockInfoDTO">
     SELECT * FROM (
