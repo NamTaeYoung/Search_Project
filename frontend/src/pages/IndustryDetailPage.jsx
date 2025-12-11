@@ -14,7 +14,6 @@ const styles = {
     fontFamily: "'Pretendard', sans-serif",
     color: '#333',
   },
-  // --- 상단 헤더 영역 ---
   headerSection: {
     marginBottom: '40px',
     paddingBottom: '30px',
@@ -42,7 +41,6 @@ const styles = {
     color: '#666',
     marginBottom: '25px',
   },
-  // --- 대장주 TOP 3 카드 ---
   leadersGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
@@ -87,15 +85,11 @@ const styles = {
     fontWeight: '600',
     color: rate > 0 ? '#d60000' : rate < 0 ? '#0051c7' : '#333',
   }),
-
-  // --- 메인 콘텐츠 (2단 분할) ---
   contentGrid: {
     display: 'grid',
-    gridTemplateColumns: '2fr 1fr', // 좌측 2 : 우측 1 비율
+    gridTemplateColumns: '2fr 1fr', 
     gap: '40px',
   },
-  
-  // 좌측: 종목 리스트
   listHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -147,8 +141,6 @@ const styles = {
     alignItems: 'center',
     gap: '5px',
   },
-
-  // 우측: 뉴스 피드
   newsContainer: {
     background: '#fff',
     border: '1px solid #eee',
@@ -156,7 +148,7 @@ const styles = {
     padding: '20px',
     height: 'fit-content',
     position: 'sticky',
-    top: '20px', // 스크롤 시 따라오게
+    top: '20px', 
   },
   newsItem: {
     display: 'block',
@@ -193,43 +185,44 @@ const styles = {
 // ==========================================
 
 function IndustryDetailPage() {
-  const { industryName } = useParams(); // URL에서 업종명 가져옴 (예: 반도체)
+  const { industryName } = useParams();
   
   const [loading, setLoading] = useState(true);
   const [stocks, setStocks] = useState([]);
   const [newsList, setNewsList] = useState([]);
   const [industryStats, setIndustryStats] = useState({ avgRate: 0, leader: '' });
   
-  const [sortType, setSortType] = useState('MARKET_CAP'); // 정렬 기준
+  const [sortType, setSortType] = useState('MARKET_CAP');
 
   useEffect(() => {
-    // 실제 API 연동
     const fetchIndustryData = async () => {
       setLoading(true);
       try {
         const res = await axios.get(`/api/industry/${industryName}`);
         
-        // 백엔드 응답 구조: { stocks: [...], news: [...] }
+        // 🚨 [디버깅] F12 콘솔창을 확인해서 데이터가 제대로 오는지 꼭 보세요!
+        console.log("📢 업종 API 응답:", res.data);
+        console.log("📰 뉴스 데이터:", res.data.news);
+
         const fetchedStocks = res.data.stocks || [];
         const fetchedNews = res.data.news || [];
 
         // 1. 업종 평균 등락률 계산
         const totalRate = fetchedStocks.reduce((acc, cur) => acc + (cur.changeRate || 0), 0);
         const avg = fetchedStocks.length > 0 ? totalRate / fetchedStocks.length : 0;
-
+        
         // 2. 대장주(시총 1위) 찾기
-        // 시가총액을 숫자로 변환해서 정렬 (문자열일 경우 대비)
         const sortedByCap = [...fetchedStocks].sort((a, b) => {
-            const capA = Number(String(a.marketCap).replace(/,/g, '')) || 0;
-            const capB = Number(String(b.marketCap).replace(/,/g, '')) || 0;
-            return capB - capA;
+             const capA = typeof a.marketCap === 'number' ? a.marketCap : parseFloat(String(a.marketCap).replace(/,/g, '')) || 0;
+             const capB = typeof b.marketCap === 'number' ? b.marketCap : parseFloat(String(b.marketCap).replace(/,/g, '')) || 0;
+             return capB - capA;
         });
         const leaderName = sortedByCap.length > 0 ? sortedByCap[0].stockName : '-';
 
         setStocks(fetchedStocks);
         setNewsList(fetchedNews);
-        setIndustryStats({ avgRate: avg.toFixed(2), leader: leaderName });
-
+        setIndustryStats({ avgRate: Number(avg.toFixed(2)), leader: leaderName });
+        
       } catch (error) {
         console.error("업종 데이터 로드 실패", error);
       } finally {
@@ -240,10 +233,13 @@ function IndustryDetailPage() {
     fetchIndustryData();
   }, [industryName]);
 
-  // 정렬 로직 (클라이언트 사이드)
+  // 정렬 로직
   const getSortedStocks = () => {
     let sorted = [...stocks];
-    const parseCap = (val) => Number(String(val).replace(/,/g, '')) || 0;
+    const parseCap = (cap) => {
+        if (typeof cap === 'number') return cap;
+        return parseFloat(String(cap).replace(/,/g, '')) || 0;
+    };
 
     if (sortType === 'MARKET_CAP') {
       sorted.sort((a, b) => parseCap(b.marketCap) - parseCap(a.marketCap));
@@ -257,24 +253,23 @@ function IndustryDetailPage() {
 
   const sortedStocks = getSortedStocks();
   
-  // 대장주 3개 추출 (시총 기준)
-  const top3Stocks = [...stocks]
-    .sort((a, b) => {
-        const capA = Number(String(a.marketCap).replace(/,/g, '')) || 0;
-        const capB = Number(String(b.marketCap).replace(/,/g, '')) || 0;
-        return capB - capA;
-    })
-    .slice(0, 3);
+  const top3Stocks = [...stocks].sort((a, b) => {
+      const capA = typeof a.marketCap === 'number' ? a.marketCap : parseFloat(String(a.marketCap).replace(/,/g, '')) || 0;
+      const capB = typeof b.marketCap === 'number' ? b.marketCap : parseFloat(String(b.marketCap).replace(/,/g, '')) || 0;
+      return capB - capA;
+  }).slice(0, 3);
 
   if (loading) return <div style={{textAlign: 'center', marginTop: '100px'}}>데이터를 불러오는 중입니다...</div>;
 
   return (
     <div style={styles.container}>
       
-      {/* 1. 상단 헤더 및 요약 */}
+      {/* 1. 상단 헤더 */}
       <section style={styles.headerSection}>
         <div style={styles.headerTitleRow}>
-          <h1 style={styles.industryName}>{industryName}</h1>
+          <h1 style={styles.industryName}>
+             {industryName === 'null' ? 'ETF' : industryName}
+          </h1>
           <span style={styles.industryRate(industryStats.avgRate)}>
             {industryStats.avgRate > 0 ? '+' : ''}{industryStats.avgRate}%
           </span>
@@ -284,11 +279,10 @@ function IndustryDetailPage() {
           }
         </div>
         <p style={styles.summaryText}>
-          {industryName} 업종은 현재 <strong>{industryStats.leader}</strong> 등이 주도하고 있으며, 
+          {industryName === 'null' ? 'ETF' : industryName} 업종은 현재 <strong>{industryStats.leader}</strong> 등이 주도하고 있으며, 
           전반적인 시장 분위기는 {industryStats.avgRate > 0 ? <span style={{color:'#d60000', fontWeight:'bold'}}>강세</span> : <span style={{color:'#0051c7', fontWeight:'bold'}}>약세</span>}입니다.
         </p>
 
-        {/* 대장주 TOP 3 카드 */}
         <div style={styles.leadersGrid}>
           {top3Stocks.map((stock, idx) => (
             <Link to={`/stock/${stock.stockCode}`} style={styles.leaderCard} key={stock.stockCode}>
@@ -307,10 +301,10 @@ function IndustryDetailPage() {
         </div>
       </section>
 
-      {/* 2. 메인 콘텐츠 (좌측: 리스트 / 우측: 뉴스) */}
+      {/* 2. 메인 콘텐츠 */}
       <div style={styles.contentGrid}>
         
-        {/* 좌측: 종목 리스트 */}
+        {/* 좌측: 리스트 */}
         <div>
           <div style={styles.listHeader}>
             <div style={styles.sectionTitle}>
@@ -351,7 +345,6 @@ function IndustryDetailPage() {
                     </span>
                   </td>
                   <td style={{...styles.td, textAlign:'right', color:'#666'}}>
-                    {/* 시가총액 포맷팅 (숫자면 억 단위 등 추가 가능, 여기선 단순 콤마) */}
                     {typeof stock.marketCap === 'number' 
                         ? (stock.marketCap / 100).toLocaleString() + '억' 
                         : stock.marketCap}
@@ -362,26 +355,33 @@ function IndustryDetailPage() {
           </table>
         </div>
 
-        {/* 우측: 관련 뉴스 피드 */}
+        {/* 우측: 뉴스 (수정됨) */}
         <aside>
           <div style={styles.newsContainer}>
-            <div style={{...styles.sectionTitle, marginBottom:'15px', fontSize:'1.2rem'}}>
+            <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'15px', fontSize:'1.2rem', fontWeight:'bold'}}>
               <Newspaper size={20} />
               관련 뉴스
             </div>
             
-            {newsList.length === 0 ? <p style={{textAlign:'center', color:'#999'}}>관련 뉴스가 없습니다.</p> : 
-                newsList.map((news) => (
-                <a key={news.newsId} href={news.url} target="_blank" rel="noopener noreferrer" style={styles.newsItem}>
-                    <div style={styles.newsTitle}>{news.title}</div>
+            {newsList.length === 0 ? <p style={{textAlign:'center', color:'#999', padding:'20px'}}>관련 뉴스가 없습니다.</p> :
+             newsList.map((news, index) => {
+                // ⭐ 안전하게 데이터 꺼내기 (DTO 필드명에 맞춤)
+                const newsId = news.newsId || news.id || index;
+                const newsTitle = news.title || news.newsTitle || "제목 없음";
+                const newsDate = news.newsDate || news.date;
+                const newsUrl = news.url || news.newsUrl || "#";
+
+                return (
+                  <a key={newsId} href={newsUrl} target="_blank" rel="noopener noreferrer" style={styles.newsItem}>
+                    <div style={styles.newsTitle}>{newsTitle}</div>
                     <div style={styles.newsMeta}>
-                        {/* NewsDTO의 newsDate 사용 */}
-                        <span>{news.newsDate ? new Date(news.newsDate).toLocaleDateString() : ''}</span>
-                        <span style={styles.sentimentTag(news.sentiment)}>{news.sentiment}</span>
+                      {/* 날짜 형식 변환 */}
+                      <span>{newsDate ? new Date(newsDate).toLocaleDateString() : ''}</span>
+                      <span style={styles.sentimentTag(news.sentiment)}>{news.sentiment}</span>
                     </div>
-                </a>
-                ))
-            }
+                  </a>
+                );
+             })}
             
             <div style={{marginTop:'15px', textAlign:'center'}}>
               <a href="#" style={{fontSize:'0.9rem', color:'#666', textDecoration:'underline'}}>뉴스 더보기</a>

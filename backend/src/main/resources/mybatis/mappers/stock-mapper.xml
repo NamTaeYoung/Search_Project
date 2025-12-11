@@ -50,23 +50,51 @@
         WHERE ROWNUM &lt;= 20
     </select>
 
+<!-- 3. 업종별 종목 리스트 조회 (ETF 처리 추가됨) -->
     <select id="getStocksByIndustry" resultMap="StockMap">
         SELECT *
         FROM STOCK_INFO
-        WHERE INDUSTRY = #{industry}
+        <where>
+            <choose>
+                <!-- 1. 요청받은 파라미터가 'ETF' (또는 문자열 'null') 이면 -> NULL인 데이터 조회 -->
+                <when test="industry == 'ETF' or industry == 'null'">
+                    INDUSTRY IS NULL
+                </when>
+                
+                <!-- 2. 그 외에는 -> 해당 업종명과 일치하는 데이터 조회 -->
+                <otherwise>
+                    INDUSTRY = #{industry}
+                </otherwise>
+            </choose>
+        </where>
+        <!-- 시가총액 숫자 변환 후 내림차순 정렬 -->
         ORDER BY TO_NUMBER(REGEXP_REPLACE(MARKET_CAP, '[^0-9]', '')) DESC
     </select>
 
+
+    <!-- 🌟 [핵심 수정] 업종명으로 뉴스 찾기 (CLOB 에러 해결 + 정확도 향상) -->
+    <!-- DISTINCT를 제거하고 단순 JOIN으로 해당 업종 종목들의 뉴스를 가져옵니다 -->
     <select id="getNewsByKeyword" resultMap="NewsMap">
         SELECT *
         FROM (
-            SELECT *
-            FROM STOCK_NEWS
-            WHERE TITLE LIKE '%' || #{keyword} || '%'
-               OR CONTENT LIKE '%' || #{keyword} || '%'
-            ORDER BY NEWS_DATE DESC
+            SELECT N.*
+            FROM STOCK_NEWS N
+            JOIN STOCK_INFO S ON N.STOCK_CODE = S.STOCK_CODE
+            <where>
+                <choose>
+                    <!-- ETF인 경우 -->
+                    <when test="keyword == 'ETF' or keyword == 'null'">
+                        S.INDUSTRY IS NULL
+                    </when>
+                    <!-- 일반 업종인 경우 -->
+                    <otherwise>
+                        S.INDUSTRY = #{keyword}
+                    </otherwise>
+                </choose>
+            </where>
+            ORDER BY N.NEWS_DATE DESC
         )
-        WHERE ROWNUM &lt;= 10
+        WHERE ROWNUM &lt;= 20
     </select>
 
 

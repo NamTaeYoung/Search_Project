@@ -364,8 +364,8 @@ function StockDetailPage() {
         <div style={styles.metaData}>
             <span style={styles.metaSpan}><strong>시장:</strong> {stockInfo.marketType || '-'}</span>
             <span style={styles.metaSpan}><strong>업종:</strong>
-            <Link to={`/industry/${stockInfo.industry}`}>
-              {stockInfo.industry || '-'}
+            <Link to={`/industry/${stockInfo.industry || 'ETF'}`}>
+              {stockInfo.industry || 'ETF'}
             </Link>
             </span>
             <span style={styles.metaSpan}><strong>시가총액:</strong> {stockInfo.marketCap || '-'}</span>
