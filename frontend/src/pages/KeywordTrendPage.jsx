@@ -1,11 +1,98 @@
 // src/pages/KeywordTrendPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 // ============================================
-// Styled Components
+// 유틸리티 함수 (재사용)
+// ============================================
+
+const formatChangeRate = (rate) => {
+    if (rate === undefined || rate === null || rate === "") return '-';
+    const numericRate = Number(rate);
+    if (isNaN(numericRate)) return '-';
+    const sign = numericRate > 0 ? '+' : '';
+    return `${sign}${numericRate.toFixed(2)}%`;
+};
+
+const formatPrice = (price) => {
+    if (!price) return '-';
+    const num = Number(price);
+    if (isNaN(num)) return '-';
+    return num.toLocaleString('ko-KR');
+};
+
+const formatMarketCap = (cap) => {
+    if (!cap) return '-';
+    const num = Number(cap);
+    if (isNaN(num)) return '-';
+    if (num >= 1000000000000) {
+        return `${(num / 1000000000000).toFixed(1)}조`;
+    } else if (num >= 100000000) {
+        return `${(num / 100000000).toFixed(0)}억`;
+    }
+    return num.toLocaleString('ko-KR');
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+        let date;
+        if (typeof dateStr === 'string' && dateStr.length === 8 && /^\d+$/.test(dateStr)) {
+            const year = dateStr.substring(0, 4);
+            const month = dateStr.substring(4, 6);
+            const day = dateStr.substring(6, 8);
+            date = new Date(`${year}-${month}-${day}`);
+        } else {
+            date = new Date(dateStr);
+        }
+        
+        if (isNaN(date.getTime())) {
+            return dateStr || '날짜 정보 없음';
+        }
+        
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 365 * 20) {
+            return '날짜 정보 없음';
+        }
+        
+        return date.toLocaleDateString('ko-KR', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit' 
+        });
+    } catch {
+        return dateStr || '날짜 정보 없음';
+    }
+};
+
+const getColor = (rate) => rate > 0 ? '#dc2626' : rate < 0 ? '#2563eb' : '#64748b';
+
+
+// ============================================
+// Flask 구독/해제 유틸리티 (배열 처리)
+// ============================================
+
+const unsubscribeFlask = (codes) => {
+    if (!codes || codes.length === 0) return;
+    // MarketCapPage의 로직을 그대로 사용 (배열을 POST)
+    fetch("http://localhost:5000/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codes }),
+    }).catch(error => {
+        console.error(`[Flask Unsubscribe Error] ${codes.join(', ')}:`, error);
+    });
+};
+
+// ============================================
+// Styled Components (원본 유지)
 // ============================================
 
 const TrendContainer = styled.div`
@@ -281,6 +368,7 @@ const StockCardChange = styled.div`
     color: ${props => 
         props.isPositive ? '#dc2626' : 
         props.isNegative ? '#2563eb' : '#64748b'};
+    white-space: nowrap; /* ⭐ 등락률 텍스트가 잘리지 않도록 추가 */
 `;
 
 const StockCardInfo = styled.div`
@@ -484,7 +572,81 @@ function KeywordTrendPage() {
     const [shouldScroll, setShouldScroll] = useState(false);
     const [showAllStocks, setShowAllStocks] = useState(false);
     
+    // ⭐ 실시간 시세 상태: { [stockCode]: { currentPrice, priceChange, changeRate } }
+    const [rtStockData, setRtStockData] = useState({}); 
+
+    // ⭐ STOMP 및 Flask 구독 Ref
+    const stompRef = useRef(null);
+    const subRefs = useRef([]);
+    const subscribedFlaskRef = useRef(new Set()); 
+
     const relatedSectionRef = useRef(null);
+
+    // ============================================
+    // STOMP/Flask 구독 및 해제 로직
+    // ============================================
+
+    // STOMP 구독 초기화 + 새 구독
+    const subscribeStocks = useCallback((list) => {
+        const client = stompRef.current;
+        if (!client || !client.connected) return;
+
+        // 기존 STOMP 구독 해제
+        subRefs.current.forEach(sub => sub.unsubscribe());
+        subRefs.current = [];
+        setRtStockData({}); // 실시간 데이터 상태 초기화
+
+        list.forEach(item => {
+            const code = item.stockCode;
+            const sub = client.subscribe(`/topic/stock/${code}`, (msg) => {
+                const data = JSON.parse(msg.body);
+                // 실시간 데이터 상태 업데이트
+                setRtStockData(prev => ({
+                    ...prev,
+                    [code]: { 
+                        currentPrice: Number(data.currentPrice), 
+                        priceChange: Number(data.priceChange), 
+                        changeRate: Number(data.changeRate) 
+                    }
+                }));
+            });
+            subRefs.current.push(sub);
+        });
+    }, []);
+
+    // Flask 구독 초기화 + 새 구독
+    const subscribeFlask = useCallback((list) => {
+        const newCodes = list.map(item => item.stockCode).filter(code => code);
+        const codesToUnsubscribe = Array.from(subscribedFlaskRef.current).filter(code => !newCodes.includes(code));
+        
+        // 이전 구독 해제
+        unsubscribeFlask(codesToUnsubscribe);
+
+        // 새 구독
+        newCodes.forEach(code => {
+            if (!subscribedFlaskRef.current.has(code)) {
+                fetch("http://localhost:5000/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code }),
+                });
+                subscribedFlaskRef.current.add(code);
+            }
+        });
+    }, []);
+
+    // 전체 구독 리셋 (새 종목 목록 로드 시)
+    const resetSubscriptions = useCallback((list) => {
+        // list는 stockCode를 가진 객체 배열
+        if (!stompRef.current?.connected) return;
+        subscribeStocks(list);
+        subscribeFlask(list);
+    }, [subscribeStocks, subscribeFlask]);
+
+
+    // ============================================
+    // ① 초기 키워드 로드 (원본 유지)
+    // ============================================
 
     useEffect(() => {
         const fetchKeywords = async () => {
@@ -512,11 +674,50 @@ function KeywordTrendPage() {
         fetchKeywords();
     }, []);
 
+    // ============================================
+    // ② STOMP WebSocket 연결 (마운트 시)
+    // ============================================
+    useEffect(() => {
+        const sock = new SockJS("http://localhost:8484/ws-stock");
+        const client = new Client({
+            webSocketFactory: () => sock,
+            reconnectDelay: 5000,
+        });
+
+        client.onConnect = () => {
+            console.log("🟢 WebSocket 연결 성공");
+            // 키워드 로드 후, 키워드 클릭 시 구독이 시작되므로 여기서 초기 구독은 생략
+        };
+
+        client.onStompError = (frame) => {
+            console.error("STOMP 오류:", frame);
+        };
+
+        client.activate();
+        stompRef.current = client;
+
+        return () => {
+            // 언마운트 시 전체 구독 해제
+            subRefs.current.forEach(sub => sub.unsubscribe());
+            subRefs.current = [];
+            if (client) client.deactivate();
+            // Flask 구독 해제
+            unsubscribeFlask(Array.from(subscribedFlaskRef.current)); 
+        };
+    }, []);
+
+
+    // ============================================
+    // ③ 관련 종목/뉴스 로드 (키워드 변경 시)
+    // ============================================
+
     useEffect(() => {
         if (!selectedKeyword) {
             setStocks([]);
             setNews([]);
             setShowAllStocks(false);
+            // 키워드 선택 해제 시 모든 구독 해제
+            resetSubscriptions([]);
             return;
         }
 
@@ -535,7 +736,8 @@ function KeywordTrendPage() {
                     stockName: stock.stockName || stock.STOCK_NAME,
                     marketType: stock.marketType || stock.MARKET_TYPE,
                     industry: stock.industry || stock.INDUSTRY,
-                    price: stock.price || stock.PRICE,
+                    // 기본 DB 가격을 초기값으로 사용
+                    price: stock.price || stock.PRICE, 
                     priceChange: stock.priceChange || stock.PRICE_CHANGE,
                     changeRate: stock.changeRate || stock.CHANGE_RATE,
                     marketCap: stock.marketCap || stock.MARKET_CAP,
@@ -544,17 +746,28 @@ function KeywordTrendPage() {
                 
                 setStocks(stocksData);
                 setNews(newsRes.data || []);
+
+                // ⭐ 종목 리스트가 갱신되면 구독 갱신 요청
+                resetSubscriptions(stocksData); 
+
             } catch (err) {
                 console.error("관련 데이터 로드 실패:", err);
                 setStocks([]);
                 setNews([]);
+                // 실패 시에도 구독 해제 (데이터가 없으므로)
+                resetSubscriptions([]);
             } finally {
                 setLoadingRelated(false);
             }
         };
 
         fetchRelatedData();
-    }, [selectedKeyword]);
+    }, [selectedKeyword, resetSubscriptions]);
+
+
+    // ============================================
+    // ④ 렌더링 준비 및 핸들러
+    // ============================================
 
     useEffect(() => {
         if (shouldScroll && selectedKeyword && relatedSectionRef.current && !loadingRelated) {
@@ -569,6 +782,17 @@ function KeywordTrendPage() {
             return () => clearTimeout(timer);
         }
     }, [shouldScroll, selectedKeyword, loadingRelated]);
+
+    const handleKeywordClick = (keyword) => {
+        setSelectedKeyword(keyword);
+        setSentimentFilter('전체');
+        setShowAllStocks(false);
+        setRtStockData({}); // 새 키워드 선택 시 실시간 데이터 초기화
+    };
+
+    const handleSentimentFilter = (filter) => {
+        setSentimentFilter(filter);
+    };
 
     // 필터링된 뉴스 계산 및 최신순 정렬
     const filteredNews = news.filter(item => {
@@ -590,83 +814,25 @@ function KeywordTrendPage() {
 
     const maxScore = keywords.length > 0 ? Math.max(...keywords.map(k => k.score)) : 1;
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        try {
-            let date;
-            if (typeof dateStr === 'string') {
-                if (dateStr.includes('-')) {
-                    date = new Date(dateStr);
-                } else if (dateStr.length === 8 && /^\d+$/.test(dateStr)) {
-                    const year = dateStr.substring(0, 4);
-                    const month = dateStr.substring(4, 6);
-                    const day = dateStr.substring(6, 8);
-                    date = new Date(`${year}-${month}-${day}`);
-                } else {
-                    date = new Date(dateStr);
-                }
-            } else {
-                date = new Date(dateStr);
-            }
-            
-            if (isNaN(date.getTime())) {
-                return dateStr;
-            }
-            
-            const now = new Date();
-            const diffTime = Math.abs(now - date);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays > 365 * 20) {
-                return '날짜 정보 없음';
-            }
-            
-            return date.toLocaleDateString('ko-KR', { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit' 
-            });
-        } catch {
-            return dateStr || '날짜 정보 없음';
-        }
-    };
+    // ⭐ 실시간 데이터와 기본 데이터를 결합한 종목 리스트
+    const displayedStocks = stocks.map(stock => {
+        const rtData = rtStockData[stock.stockCode];
+        return {
+            ...stock,
+            // 실시간 데이터가 있으면 그걸 쓰고, 없으면 DB 기본값을 사용
+            price: rtData?.currentPrice ?? stock.price,
+            priceChange: rtData?.priceChange ?? stock.priceChange,
+            changeRate: rtData?.changeRate ?? stock.changeRate,
+        };
+    });
+    
+    // 최종적으로 표시할 종목 리스트 (더보기/접기 적용)
+    const finalStockList = showAllStocks ? displayedStocks : displayedStocks.slice(0, 6);
 
-    const formatChangeRate = (rate) => {
-        if (rate === null || rate === undefined || rate === '') return '-';
-        const num = Number(rate);
-        if (isNaN(num)) return '-';
-        const sign = num > 0 ? '+' : '';
-        return `${sign}${num.toFixed(2)}%`;
-    };
 
-    const formatPrice = (price) => {
-        if (!price) return '-';
-        const num = Number(price);
-        if (isNaN(num)) return '-';
-        return num.toLocaleString('ko-KR');
-    };
-
-    const formatMarketCap = (cap) => {
-        if (!cap) return '-';
-        const num = Number(cap);
-        if (isNaN(num)) return '-';
-        if (num >= 1000000000000) {
-            return `${(num / 1000000000000).toFixed(1)}조`;
-        } else if (num >= 100000000) {
-            return `${(num / 100000000).toFixed(0)}억`;
-        }
-        return num.toLocaleString('ko-KR');
-    };
-
-    const handleKeywordClick = (keyword) => {
-        setSelectedKeyword(keyword);
-        setSentimentFilter('전체');
-        setShowAllStocks(false);
-    };
-
-    const handleSentimentFilter = (filter) => {
-        setSentimentFilter(filter);
-    };
+    // ============================================
+    // ⑤ 렌더링
+    // ============================================
 
     return (
         <TrendContainer>
@@ -722,45 +888,48 @@ function KeywordTrendPage() {
                         <LoadingState>데이터를 불러오는 중...</LoadingState>
                     ) : (
                         <>
-                            {stocks.length > 0 && (
+                            {displayedStocks.length > 0 && (
                                 <StockList>
                                     <StockListTitle>
-                                        관련 종목 ({stocks.length}개)
+                                        관련 종목 ({displayedStocks.length}개)
                                     </StockListTitle>
                                     <StockGrid>
-                                        {(showAllStocks ? stocks : stocks.slice(0, 6)).map((stock, index) => (
-                                            <StockCard key={stock.stockCode || index} to={`/stock/${stock.stockCode}`}>
-                                                <StockCardHeader>
-                                                    <StockCardName>{stock.stockName || '종목명 없음'}</StockCardName>
-                                                    <StockCardChange 
-                                                        isPositive={stock.changeRate > 0}
-                                                        isNegative={stock.changeRate < 0}
-                                                    >
-                                                        {formatChangeRate(stock.changeRate)}
-                                                    </StockCardChange>
-                                                </StockCardHeader>
-                                                {stock.price && (
-                                                    <div style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
-                                                        {formatPrice(stock.price)}원
-                                                    </div>
-                                                )}
-                                                <StockCardInfo>
-                                                    <StockCardMarket>
-                                                        {stock.marketType === 'KOSPI' ? '코스피' : stock.marketType === 'KOSDAQ' ? '코스닥' : stock.marketType || '-'}
-                                                    </StockCardMarket>
-                                                    <StockCardNews>{stock.newsCount || 0}건</StockCardNews>
-                                                </StockCardInfo>
-                                            </StockCard>
-                                        ))}
+                                        {finalStockList.map((stock, index) => {
+                                            const rate = Number(stock.changeRate);
+                                            return (
+                                                <StockCard key={stock.stockCode || index} to={`/stock/${stock.stockCode}`}>
+                                                    <StockCardHeader>
+                                                        <StockCardName>{stock.stockName || '종목명 없음'}</StockCardName>
+                                                        <StockCardChange 
+                                                            isPositive={rate > 0}
+                                                            isNegative={rate < 0}
+                                                        >
+                                                            {formatChangeRate(rate)}
+                                                        </StockCardChange>
+                                                    </StockCardHeader>
+                                                    {stock.price && (
+                                                        <div style={{ fontSize: '14px', color: getColor(rate), fontWeight: 600, marginTop: '8px' }}>
+                                                            {formatPrice(stock.price)}원
+                                                        </div>
+                                                    )}
+                                                    <StockCardInfo>
+                                                        <StockCardMarket>
+                                                            {stock.marketType === 'KOSPI' ? '코스피' : stock.marketType === 'KOSDAQ' ? '코스닥' : stock.marketType || '-'}
+                                                        </StockCardMarket>
+                                                        <StockCardNews>{stock.newsCount || 0}건</StockCardNews>
+                                                    </StockCardInfo>
+                                                </StockCard>
+                                            );
+                                        })}
                                     </StockGrid>
-                                    {stocks.length > 6 && (
+                                    {displayedStocks.length > 6 && (
                                         <ShowMoreButton
                                             showAll={showAllStocks}
                                             onClick={() => setShowAllStocks(!showAllStocks)}
                                         >
                                             {showAllStocks 
                                                 ? '접기' 
-                                                : `더보기 (${stocks.length - 6}개)`}
+                                                : `더보기 (${displayedStocks.length - 6}개)`}
                                         </ShowMoreButton>
                                     )}
                                 </StockList>
@@ -806,7 +975,7 @@ function KeywordTrendPage() {
                                         ))
                                     ) : (
                                         <EmptyState>
-                                            <p>관련 뉴스가 없습니다.</p>
+                                            <p>선택한 감성 필터에 해당하는 뉴스가 없습니다.</p>
                                         </EmptyState>
                                     )}
                                 </NewsList>
