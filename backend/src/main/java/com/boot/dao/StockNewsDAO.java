@@ -40,10 +40,16 @@ public interface StockNewsDAO {
     // 전체 감성 통계
     Map<String, Object> getOverallSentimentSummary();
     
- // ✅ 산업 목록 조회
+    // ✅ 산업 목록 조회
     List<String> getIndustries();
 
     // ✅ 산업별 뉴스 조회
     List<StockNewsDTO> getNewsByIndustry(@Param("industry") String industry);
+
+    // ✅ 키워드별 뉴스 조회
+    List<StockNewsDTO> getNewsByKeyword(@Param("keyword") String keyword);
+
+    // ✅ 키워드별 종목 조회
+    List<Map<String, Object>> getStocksByKeyword(@Param("keyword") String keyword);
 
 }
