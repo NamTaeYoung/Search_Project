@@ -161,5 +161,35 @@
 	    ORDER BY n.NEWS_DATE DESC
 	</select>
 
+    <!-- ✅ 키워드별 뉴스 조회 -->
+    <select id="getNewsByKeyword" resultType="com.boot.dto.StockNewsDTO">
+        SELECT NEWS_ID, STOCK_CODE, TITLE, CONTENT, URL, NEWS_DATE, CREATED_AT,
+               SENTIMENT, SCORE, KEYWORDS, UPDATED_AT
+        FROM STOCK_NEWS
+        WHERE KEYWORDS IS NOT NULL
+          AND UPPER(KEYWORDS) LIKE '%' || UPPER(#{keyword}) || '%'
+        ORDER BY NEWS_DATE DESC
+    </select>
+
+    <!-- ✅ 키워드별 종목 조회 (중복 제거, 뉴스 개수 포함) -->
+    <select id="getStocksByKeyword" resultType="map">
+        SELECT 
+            s.STOCK_CODE,
+            s.STOCK_NAME,
+            s.MARKET_TYPE,
+            s.INDUSTRY,
+            s.PRICE,
+            s.PRICE_CHANGE,
+            s.CHANGE_RATE,
+            s.MARKET_CAP,
+            COUNT(n.NEWS_ID) AS newsCount
+        FROM STOCK_INFO s
+        INNER JOIN STOCK_NEWS n ON s.STOCK_CODE = n.STOCK_CODE
+        WHERE n.KEYWORDS IS NOT NULL
+          AND UPPER(n.KEYWORDS) LIKE '%' || UPPER(#{keyword}) || '%'
+        GROUP BY s.STOCK_CODE, s.STOCK_NAME, s.MARKET_TYPE, s.INDUSTRY, 
+                 s.PRICE, s.PRICE_CHANGE, s.CHANGE_RATE, s.MARKET_CAP
+        ORDER BY newsCount DESC, s.STOCK_NAME
+    </select>
 
 </mapper>
