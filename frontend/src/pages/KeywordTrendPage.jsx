@@ -445,6 +445,29 @@ const NewsLink = styled.a`
     }
 `;
 
+const ShowMoreButton = styled.button`
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: ${props => props.showAll 
+        ? '#f1f5f9' 
+        : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'};
+    color: ${props => props.showAll ? '#64748b' : '#ffffff'};
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: auto;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: ${props => props.showAll ? 'none' : '0 2px 6px rgba(59, 130, 246, 0.2)'};
+    align-self: flex-start;
+    
+    &:hover {
+        transform: ${props => props.showAll ? 'none' : 'translateY(-1px)'};
+        box-shadow: ${props => props.showAll ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.3)'};
+    }
+`;
+
 // ============================================
 // Main Component
 // ============================================
@@ -459,6 +482,7 @@ function KeywordTrendPage() {
     const [error, setError] = useState(null);
     const [sentimentFilter, setSentimentFilter] = useState('전체');
     const [shouldScroll, setShouldScroll] = useState(false);
+    const [showAllStocks, setShowAllStocks] = useState(false);
     
     const relatedSectionRef = useRef(null);
 
@@ -492,6 +516,7 @@ function KeywordTrendPage() {
         if (!selectedKeyword) {
             setStocks([]);
             setNews([]);
+            setShowAllStocks(false);
             return;
         }
 
@@ -636,6 +661,7 @@ function KeywordTrendPage() {
     const handleKeywordClick = (keyword) => {
         setSelectedKeyword(keyword);
         setSentimentFilter('전체');
+        setShowAllStocks(false);
     };
 
     const handleSentimentFilter = (filter) => {
@@ -702,7 +728,7 @@ function KeywordTrendPage() {
                                         관련 종목 ({stocks.length}개)
                                     </StockListTitle>
                                     <StockGrid>
-                                        {stocks.slice(0, 6).map((stock, index) => (
+                                        {(showAllStocks ? stocks : stocks.slice(0, 6)).map((stock, index) => (
                                             <StockCard key={stock.stockCode || index} to={`/stock/${stock.stockCode}`}>
                                                 <StockCardHeader>
                                                     <StockCardName>{stock.stockName || '종목명 없음'}</StockCardName>
@@ -727,6 +753,16 @@ function KeywordTrendPage() {
                                             </StockCard>
                                         ))}
                                     </StockGrid>
+                                    {stocks.length > 6 && (
+                                        <ShowMoreButton
+                                            showAll={showAllStocks}
+                                            onClick={() => setShowAllStocks(!showAllStocks)}
+                                        >
+                                            {showAllStocks 
+                                                ? '접기' 
+                                                : `더보기 (${stocks.length - 6}개)`}
+                                        </ShowMoreButton>
+                                    )}
                                 </StockList>
                             )}
 
