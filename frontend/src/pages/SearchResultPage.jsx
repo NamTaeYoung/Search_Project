@@ -163,9 +163,8 @@ function SearchResultPage() {
   const currentStocks = stocks.slice(indexOfFirstItem, indexOfLastItem);
   const currentNews = newsList.slice(indexOfFirstItem, indexOfLastItem);
 
-  // 페이지 버튼 수 계산 (종목과 뉴스 중 더 긴 목록 기준)
-  const maxItems = Math.max(stocks.length, newsList.length);
-  const totalPages = Math.ceil(maxItems / itemsPerPage);
+  // 페이지 버튼 수 계산 (뉴스 기준으로만 계산)
+  const newsTotalPages = Math.ceil(newsList.length / itemsPerPage);
 
   // 페이지 변경 핸들러
   const handlePageChange = (pageNumber) => {
@@ -233,8 +232,8 @@ function SearchResultPage() {
                 </div>
             )}
 
-            {/* ⭐ [추가] 페이지네이션 UI */}
-            {totalPages > 1 && (
+            {/* ⭐ [수정] 페이지네이션 UI - 뉴스가 있고 뉴스 페이지가 2개 이상일 때만 표시 */}
+            {newsList.length > 0 && newsTotalPages > 1 && (
                 <div style={styles.pagination}>
                     {/* 이전 버튼 */}
                     <button 
@@ -250,7 +249,7 @@ function SearchResultPage() {
                     </button>
 
                     {/* 페이지 번호 버튼들 */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => (
+                    {Array.from({ length: newsTotalPages }, (_, i) => i + 1).map((number) => (
                         <button
                             key={number}
                             onClick={() => handlePageChange(number)}
@@ -263,11 +262,11 @@ function SearchResultPage() {
                     {/* 다음 버튼 */}
                     <button 
                         onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage === newsTotalPages}
                         style={{
                             ...styles.pageBtn(false),
-                            opacity: currentPage === totalPages ? 0.5 : 1,
-                            cursor: currentPage === totalPages ? 'default' : 'pointer'
+                            opacity: currentPage === newsTotalPages ? 0.5 : 1,
+                            cursor: currentPage === newsTotalPages ? 'default' : 'pointer'
                         }}
                     >
                         &gt;
