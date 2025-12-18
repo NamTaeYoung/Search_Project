@@ -59,15 +59,15 @@
 
 | 분야 | 기술 |
 |------|------|
-| **Frontend** | React, JavaScript |
-| **Backend** | Spring Boot, Java, MyBatis |
-| **Database** | Oracle |
+| **Frontend** | React <img src="https://img.shields.io/badge/javascript-F7DF1E?style=flat-square&logi=html5&logoColor=white"> |
+| **Backend** | <img src="https://img.shields.io/badge/springboot-6DB33F?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/Java-F7DF1E?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/Lombok-4285F4?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/MyBatis-006600?style=flat-square&logi=html5&logoColor=white"> |
+| **Database** | <img src="https://img.shields.io/badge/Oracle Database-09476B?style=flat-square&logi=html5&logoColor=white"> |
 | **Security** | JWT (Access / Refresh Token), OAuth2 (Google / Kakao / Naver) |
 | **Data / Crawling** | Python, Requests, BeautifulSoup |
 | **Cache / Scheduler** | Redis, Spring Scheduler |
-| **Infra / Server** | AWS EC2 (Ubuntu), Tomcat |
-| **Build Tool** | Gradle |
-| **Tools** | VS Code, Postman, GitHub, SourceTree |
+| **Infra / Server** | AWS EC2 (Ubuntu) <img src="https://img.shields.io/badge/Apache Tomcat-F8DC75?style=flat-square&logi=html5&logoColor=white"> |
+| **Build Tool** | <img src="https://img.shields.io/badge/Gradle-02303A?style=flat-square&logi=html5&logoColor=white"> |
+| **Tools** | VS Code <img src="https://img.shields.io/badge/STS-6DB33F?style=flat-square&logi=html5&logoColor=white"> Postman <img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/SourceTree-0052CC?style=flat-square&logi=html5&logoColor=white"> |
 
 ---
 
