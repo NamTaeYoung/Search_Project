@@ -254,6 +254,8 @@ QR 인증 토큰이 자동으로 만료되도록 처리했습니다.
 
 </details> <details> <summary><strong>계정 상태 관리 및 보안 통제</strong></summary>
 
+
+
 📌 설명
 
 비정상적인 로그인 시도를 방지하기 위해
@@ -351,7 +353,7 @@ CSV 파일로 다운로드할 수 있도록 하여,
 각 기능별 동작 방식과 흐름을 직관적으로 확인할 수 있습니다.
 
 ### 📌 전체 시연 영상
-🔗 YouTube 링크: https://youtu.be/5ZXFRO9wcw0 (사용자)<br>
+🔗 YouTube 링크: https://youtu.be/5spm6NijYE4 (사용자)<br>
 🔗 YouTube 링크: https://youtu.be/cdFkztkbYDM (관리자)
 
 또는  
