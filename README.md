@@ -67,7 +67,7 @@
 | **Cache / Scheduler** | <img src="https://img.shields.io/badge/redis-FF4438?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/Spring Scheduler-6DB33F?style=flat-square&logi=html5&logoColor=white"> |
 | **Infra / Server** | <img src="https://img.shields.io/badge/AWS EC2 (Ubuntu)-F68F1E?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/Apache Tomcat-F8DC75?style=flat-square&logi=html5&logoColor=white"> |
 | **Build Tool** | <img src="https://img.shields.io/badge/Gradle-02303A?style=flat-square&logi=html5&logoColor=white"> |
-| **Tools** | VS Code <img src="https://img.shields.io/badge/STS-6DB33F?style=flat-square&logi=html5&logoColor=white"> Postman <img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/SourceTree-0052CC?style=flat-square&logi=html5&logoColor=white"> |
+| **Tools** | <img src="https://img.shields.io/badge/VS Code-3E8DCC?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/STS-6DB33F?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/Postman-FF6C37?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/GitHub-181717?style=flat-square&logi=html5&logoColor=white"> <img src="https://img.shields.io/badge/SourceTree-0052CC?style=flat-square&logi=html5&logoColor=white"> |
 
 ---
 
