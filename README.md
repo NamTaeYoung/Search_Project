@@ -207,7 +207,7 @@
 📄 ERD  
 <details> <summary><strong>ERD 다이어그램</strong></summary>
 
-https://dbdiagram.io/d/6940a548e877c63074f37db2
+<img width="1322" height="988" alt="image" src="https://github.com/user-attachments/assets/e0c61011-41fa-411f-88bb-625aa8cf5cdd" />
 
 </details>
 
