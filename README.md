@@ -197,6 +197,12 @@
 🔐 인증 / 보안
 <details> <summary><strong>회원가입</strong></summary>
 
+
+
+https://github.com/user-attachments/assets/c0a16a21-42e8-4acb-aeda-10ff1b3ef3ec
+
+
+
 📌 설명
 
 사용자가 회원 정보를 입력하면
@@ -280,6 +286,12 @@ QR 인증 토큰이 자동으로 만료되도록 처리했습니다.
 관리자 화면에서 수행할 수 있도록 구성했습니다.
 
 </details> <details> <summary><strong>토큰 관리</strong></summary>
+
+
+
+https://github.com/user-attachments/assets/6cfe6178-25e6-4608-bd28-93e23ae7e9fe
+
+
 
 📌 설명
 
