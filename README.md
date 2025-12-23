@@ -410,7 +410,7 @@ CSV 파일로 다운로드할 수 있도록 하여,
 │  │  ├─ App.css
 │  │  ├─ index.css
 │  │  └─ main.jsx
-│  ├─ .env.example
+│  ├─ .env
 │  ├─ .gitignore
 │  ├─ eslint.config.js
 │  ├─ index.html
